@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "media_center_kb"
+version = "0.1"
+description = "Media Center Keyboard"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License"
+]
+dependencies = [
+  "evdev",
+  "RPi.GPIO",
+  "yamaha-ysp-4000@git+https://github.com/pzbitskiy/yamaha-ysp-4000"
+]
+[project.optional-dependencies]
+tests = [
+  "pylint",
+  "pytest"
+]
+
+[project.scripts]
+mediackb = "media_center_kb:main"
+
+[project.urls]
+"Homepage" = "https://github.com/pzbitskiy/media-center-kb"
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+python_classes = ["Test"]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.pylint]
+init-hook='import sys; sys.path.append("./src")'
