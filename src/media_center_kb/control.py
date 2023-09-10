@@ -10,12 +10,16 @@ def enable_tv(relay, ysp):
     power on soundbar
     turn on soundbar
     select TV/STB channel
+    select 5 beam
+    select cinema mode
     IR/radio to switch on projector?
     """
     def inner():
         relay.on()
         ysp.power_on()
         ysp.set_input_tv()
+        ysp.set_5beam()
+        ysp.set_dsp_cinema()
     return inner
 
 
@@ -35,7 +39,8 @@ def enable_turntable(relay1, relay2, ysp):
     """
     power on soundbar (relay 1)
     turn on soundbar
-    select AUX channel
+    select AUX1 channel
+    select stereo mode
     power on turntable (relay 2)
     """
     def inner():
@@ -43,6 +48,8 @@ def enable_turntable(relay1, relay2, ysp):
         relay2.on()
         ysp.power_on()
         ysp.set_input_aux1()
+        ysp.set_dsp_off()
+        ysp.set_stereo()
     return inner
 
 
@@ -69,6 +76,20 @@ def switch_off(relay1, relay2, relay4, ysp):
     return inner
 
 
+def volume_down(ysp):
+    """YSP volume control"""
+    def inner():
+        ysp.volume_down()
+    return inner
+
+
+def volume_up(ysp):
+    """YSP volume control"""
+    def inner():
+        ysp.volume_up()
+    return inner
+
+
 def control_handlers(relays: Any, ysp: Any) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
     return {
@@ -82,5 +103,9 @@ def control_handlers(relays: Any, ysp: Any) -> Dict[str, Callable]:
         'KEY_KPMINUS': relays.relay(4).on,
         'KEY_KPPLUS': relays.relay(4).off,
 
-        'KEY_KPENTER': switch_off(relays.relay(1), relays.relay(2), relays.relay(4), ysp)
+        'KEY_KPENTER': switch_off(relays.relay(1), relays.relay(2), relays.relay(4), ysp),
+
+        # YSP volume
+        'KEY_KP0': volume_down(ysp),
+        'KEY_KP1': volume_up(ysp)
     }
