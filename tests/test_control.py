@@ -12,8 +12,8 @@ from .mocks import GPMock, YspMock, ShellMock
 class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
     """Relays class wrapper for tests"""
     def __init__(self, gpio):
-        super().__init__(gpio)
         self.cached = {}
+        super().__init__(gpio)
 
     def relay(self, relay: int):
         """Return a wrapped relay with extra methods for testing"""

@@ -9,10 +9,10 @@ from types import SimpleNamespace
 from typing import Any
 
 
-RELAY1_PIN = 22
-RELAY2_PIN = 23
-RELAY3_PIN = 24
-RELAY4_PIN = 25
+RELAY1_PIN = 6
+RELAY2_PIN = 13
+RELAY3_PIN = 19
+RELAY4_PIN = 26
 
 
 PIN_TO_RELAY = {
@@ -68,6 +68,7 @@ class Relays:
     """Relays class"""
     def __init__(self, gpio: Any):
         self.gpio = gpio
+        self.reset()
 
     def reset(self):
         """Switch off all relays"""

@@ -21,7 +21,7 @@ class GPio(GPioIf):
 
     @property
     def LOW(self) -> int:
-        return GPIO.HIGH
+        return GPIO.LOW
 
     def input(self, pin: int) -> bool:
         return GPIO.input(pin)

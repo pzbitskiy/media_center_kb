@@ -24,7 +24,7 @@ tests = [
 ]
 
 [project.scripts]
-mediackb = "media_center_kb:main"
+mediackb = "media_center_kb.main:main"
 
 [project.urls]
 "Homepage" = "https://github.com/pzbitskiy/media-center-kb"
