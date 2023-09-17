@@ -66,13 +66,11 @@ def disable_turntable(relay1, relay2, ysp):
     return inner
 
 
-def switch_off(relay1, relay2, relay4, ysp):
+def switch_off(relays, ysp):
     """switch off everything except the controller"""
     def inner():
         ysp.power_off()
-        relay4.off()
-        relay2.off()
-        relay1.off()
+        relays.reset()
     return inner
 
 
@@ -90,8 +88,22 @@ def volume_up(ysp):
     return inner
 
 
-def control_handlers(relays: Any, ysp: Any) -> Dict[str, Callable]:
+def power_off(relays, ysp, shell):
+    """power off the entire thing"""
+    def inner():
+        ysp.power_off()
+        relays.reset()
+        shell('sudo poweroff')
+    return inner
+
+
+def control_handlers(relays: Any, ysp: Any, shell: Callable=None) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
+    if not shell:
+        def noop(_):
+            pass
+        shell = noop
+
     return {
         'KEY_KP7': enable_tv(relays.relay(1), ysp),
         'KEY_KP4': disable_tv(relays.relay(1), ysp),
@@ -103,9 +115,11 @@ def control_handlers(relays: Any, ysp: Any) -> Dict[str, Callable]:
         'KEY_KPMINUS': relays.relay(4).on,
         'KEY_KPPLUS': relays.relay(4).off,
 
-        'KEY_KPENTER': switch_off(relays.relay(1), relays.relay(2), relays.relay(4), ysp),
+        'KEY_KPENTER': switch_off(relays, ysp),
 
         # YSP volume
         'KEY_KP0': volume_down(ysp),
-        'KEY_KP1': volume_up(ysp)
+        'KEY_KP1': volume_up(ysp),
+
+        'KEY_ESC': power_off(relays, ysp, shell),
     }

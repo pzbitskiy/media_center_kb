@@ -38,6 +38,8 @@ class YspMock:
     def __init__(self):
         self.power_state = None
         self.input = None
+        self.sound_mode = None
+        self.dsp = None
 
     def power_on(self):
         self.power_state = 'on'
@@ -51,6 +53,18 @@ class YspMock:
 
     def set_input_aux1(self):
         self.input = 'aux1'
+
+    def set_5beam(self):
+        self.sound_mode = '5beam'
+
+    def set_stereo(self):
+        self.sound_mode = 'stereo'
+
+    def set_dsp_cinema(self):
+        self.dsp = 'cinema'
+
+    def set_dsp_off(self):
+        self.dsp = 'off'
 
     @property
     def is_power_on(self):
@@ -67,3 +81,11 @@ class YspMock:
     @property
     def is_input_aux1(self):
         return self.input == 'aux1'
+
+class ShellMock:  # pylint: disable=too-few-public-methods
+    """Mock for cmd commands"""
+    def __init__(self):
+        self.last_cmd = None
+
+    def __call__(self, cmd):
+        self.last_cmd = cmd

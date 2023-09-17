@@ -6,7 +6,7 @@ from typing import Any, Iterable
 from media_center_kb.relays import Relays, RelayIf
 from media_center_kb.control import control_handlers
 
-from .mocks import GPMock, YspMock
+from .mocks import GPMock, YspMock, ShellMock
 
 
 class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
@@ -35,6 +35,12 @@ class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
             result = Wrapped(super().relay(relay))
             self.cached[relay] = result
         return result
+
+    def reset(self):
+        """Wrapped Relays.reset"""
+        super().reset()
+        for relay in self.cached.values():
+            relay.is_on = False
 
 
 class TestControl(unittest.TestCase):
@@ -107,3 +113,17 @@ class TestControl(unittest.TestCase):
         handlers.get('KEY_KPENTER')()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
+
+    def test_poweroff(self):
+        """test poweroff"""
+
+        gpio_mock = GPMock()
+        relays = WrapRelays(gpio_mock)
+        ysp = YspMock()
+        shell = ShellMock()
+
+        handlers = control_handlers(relays, ysp, shell)
+        handlers.get('KEY_ESC')()
+        self.assertOff(relays)
+        self.assertTrue(ysp.is_power_off)
+        self.assertEqual('sudo poweroff', shell.last_cmd)
