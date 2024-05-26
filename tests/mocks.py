@@ -82,6 +82,14 @@ class YspMock:
     def is_input_aux1(self):
         return self.input == 'aux1'
 
+    @property
+    def is_stereo(self):
+        return self.sound_mode == 'stereo'
+
+    @property
+    def is_5beam(self):
+        return self.sound_mode == '5beam'
+
 class ShellMock:  # pylint: disable=too-few-public-methods
     """Mock for cmd commands"""
     def __init__(self):

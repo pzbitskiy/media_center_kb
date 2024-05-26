@@ -35,6 +35,33 @@ def disable_tv(relay, ysp):
     return inner
 
 
+def enable_music_stream(relay, ysp):
+    """
+    power on soundbar
+    turn on soundbar
+    select TV/STB channel
+    select stereo mode
+    """
+    def inner():
+        relay.on()
+        ysp.power_on()
+        ysp.set_input_tv()
+        ysp.set_dsp_off()
+        ysp.set_stereo()
+    return inner
+
+
+def disable_music_stream(relay, ysp):
+    """
+    turn off soundbar
+    power off soundbar
+    """
+    def inner():
+        ysp.power_off()
+        relay.off()
+    return inner
+
+
 def enable_turntable(relay1, relay2, ysp):
     """
     power on soundbar (relay 1)
@@ -110,6 +137,9 @@ def control_handlers(relays: Any, ysp: Any, shell: Callable=None) -> Dict[str, C
 
         'KEY_KP8': enable_turntable(relays.relay(1), relays.relay(2), ysp),
         'KEY_KP5': disable_turntable(relays.relay(1), relays.relay(2), ysp),
+
+        'KEY_KP9': enable_music_stream(relays.relay(1), ysp),
+        'KEY_KP6': disable_music_stream(relays.relay(1), ysp),
 
         # printer
         'KEY_KPMINUS': relays.relay(4).on,

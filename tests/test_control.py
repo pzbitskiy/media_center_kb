@@ -75,8 +75,22 @@ class TestControl(unittest.TestCase):
         self.assertOn(relays, [1])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_tv)
+        self.assertTrue(ysp.is_5beam)
 
         handlers.get('KEY_KP4')()
+        self.assertOff(relays)
+        self.assertTrue(ysp.is_power_off)
+        self.assertFalse(ysp.is_input_tv)
+        self.assertFalse(ysp.is_input_aux1)
+
+        # music stream
+        handlers.get('KEY_KP9')()
+        self.assertOn(relays, [1])
+        self.assertTrue(ysp.is_power_on)
+        self.assertTrue(ysp.is_input_tv)
+        self.assertTrue(ysp.is_stereo)
+
+        handlers.get('KEY_KP6')()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
         self.assertFalse(ysp.is_input_tv)
@@ -87,6 +101,7 @@ class TestControl(unittest.TestCase):
         self.assertOn(relays, [1, 2])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_aux1)
+        self.assertTrue(ysp.is_stereo)
 
         handlers.get('KEY_KP5')()
         self.assertOff(relays)
