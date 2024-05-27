@@ -2,10 +2,13 @@
 Control action for each key
 """
 
-from typing import Callable, Dict, Any
+from typing import Callable, Dict
+
+from ysp4000 import YSP4000
+from .relays import Relays, RelayIf
 
 
-def enable_tv(relay, ysp):
+def enable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
     """
     power on soundbar
     turn on soundbar
@@ -23,7 +26,7 @@ def enable_tv(relay, ysp):
     return inner
 
 
-def disable_tv(relay, ysp):
+def disable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -35,7 +38,7 @@ def disable_tv(relay, ysp):
     return inner
 
 
-def enable_music_stream(relay, ysp):
+def enable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
     """
     power on soundbar
     turn on soundbar
@@ -51,7 +54,7 @@ def enable_music_stream(relay, ysp):
     return inner
 
 
-def disable_music_stream(relay, ysp):
+def disable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -62,7 +65,7 @@ def disable_music_stream(relay, ysp):
     return inner
 
 
-def enable_turntable(relay1, relay2, ysp):
+def enable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callable:
     """
     power on soundbar (relay 1)
     turn on soundbar
@@ -80,7 +83,7 @@ def enable_turntable(relay1, relay2, ysp):
     return inner
 
 
-def disable_turntable(relay1, relay2, ysp):
+def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -93,7 +96,7 @@ def disable_turntable(relay1, relay2, ysp):
     return inner
 
 
-def switch_off(relays, ysp):
+def switch_off(relays: Relays, ysp: YSP4000) -> Callable:
     """switch off everything except the controller"""
     def inner():
         ysp.power_off()
@@ -101,21 +104,21 @@ def switch_off(relays, ysp):
     return inner
 
 
-def volume_down(ysp):
+def volume_down(ysp: YSP4000) -> Callable:
     """YSP volume control"""
     def inner():
         ysp.volume_down()
     return inner
 
 
-def volume_up(ysp):
+def volume_up(ysp: YSP4000) -> Callable:
     """YSP volume control"""
     def inner():
         ysp.volume_up()
     return inner
 
 
-def power_off(relays, ysp, shell):
+def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
     """power off the entire thing"""
     def inner():
         ysp.power_off()
@@ -124,7 +127,7 @@ def power_off(relays, ysp, shell):
     return inner
 
 
-def control_handlers(relays: Any, ysp: Any, shell: Callable=None) -> Dict[str, Callable]:
+def control_handlers(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
     if not shell:
         def noop(_):
