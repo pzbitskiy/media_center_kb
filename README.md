@@ -1,4 +1,4 @@
-# Media center custom keyboard
+# Media center controller with a numpad keyboard
 
 ## Project goals
 
