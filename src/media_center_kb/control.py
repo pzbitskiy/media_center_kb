@@ -1,11 +1,18 @@
 """
 Control action for each key
 """
-
+import time
 from typing import Callable, Dict
 
 from ysp4000 import YSP4000
 from .relays import Relays, RelayIf
+
+
+def ysp_graceful_power_off(ysp: YSP4000):
+    """Power offs YSP with 1s delay"""
+    ysp.power_off()
+    # give YSP change to power off. 1s looks a lot who cares, it is switching off
+    time.sleep(1)
 
 
 def enable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
@@ -33,7 +40,7 @@ def disable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
 
     """
     def inner():
-        ysp.power_off()
+        ysp_graceful_power_off(ysp)
         relay.off()
     return inner
 
@@ -60,7 +67,7 @@ def disable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
     power off soundbar
     """
     def inner():
-        ysp.power_off()
+        ysp_graceful_power_off(ysp)
         relay.off()
     return inner
 
@@ -90,7 +97,7 @@ def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callabl
     power off turntable
     """
     def inner():
-        ysp.power_off()
+        ysp_graceful_power_off(ysp)
         relay2.off()
         relay1.off()
     return inner
@@ -99,7 +106,7 @@ def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callabl
 def switch_off(relays: Relays, ysp: YSP4000) -> Callable:
     """switch off everything except the controller"""
     def inner():
-        ysp.power_off()
+        ysp_graceful_power_off(ysp)
         relays.reset()
     return inner
 
@@ -121,7 +128,7 @@ def volume_up(ysp: YSP4000) -> Callable:
 def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
     """power off the entire thing"""
     def inner():
-        ysp.power_off()
+        ysp_graceful_power_off(ysp)
         relays.reset()
         shell('sudo poweroff')
     return inner
