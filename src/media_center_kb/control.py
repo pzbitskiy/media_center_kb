@@ -8,6 +8,13 @@ from ysp4000 import YSP4000
 from .relays import Relays, RelayIf
 
 
+class RelayMap:
+    ysp = 1
+    tbd = 2
+    turntable = 3
+    printer = 4
+
+
 def ysp_graceful_power_off(ysp: YSP4000):
     """Power offs YSP with 1s delay"""
     ysp.power_off()
@@ -142,18 +149,20 @@ def control_handlers(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict
         shell = noop
 
     return {
-        'KEY_KP7': enable_tv(relays.relay(1), ysp),
-        'KEY_KP4': disable_tv(relays.relay(1), ysp),
+        'KEY_KP7': enable_tv(relays.relay(RelayMap.ysp), ysp),
+        'KEY_KP4': disable_tv(relays.relay(RelayMap.ysp), ysp),
 
-        'KEY_KP8': enable_turntable(relays.relay(1), relays.relay(2), ysp),
-        'KEY_KP5': disable_turntable(relays.relay(1), relays.relay(2), ysp),
+        'KEY_KP8': enable_turntable(
+            relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp),
+        'KEY_KP5': disable_turntable(
+            relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp),
 
-        'KEY_KP9': enable_music_stream(relays.relay(1), ysp),
-        'KEY_KP6': disable_music_stream(relays.relay(1), ysp),
+        'KEY_KP9': enable_music_stream(relays.relay(RelayMap.ysp), ysp),
+        'KEY_KP6': disable_music_stream(relays.relay(RelayMap.ysp), ysp),
 
         # printer
-        'KEY_KPMINUS': relays.relay(4).on,
-        'KEY_KPPLUS': relays.relay(4).off,
+        'KEY_KPMINUS': relays.relay(RelayMap.printer).on,
+        'KEY_KPPLUS': relays.relay(RelayMap.printer).off,
 
         'KEY_KPENTER': switch_off(relays, ysp),
 
