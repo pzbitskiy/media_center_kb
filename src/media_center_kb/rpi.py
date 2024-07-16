@@ -1,13 +1,16 @@
 """RPi GPIO implementation"""
+
 from typing import Iterable
 
 import RPi.GPIO as GPIO  # pylint: disable=consider-using-from-import
 
 from .relays import GPioIf
 
+
 # pylint: disable=no-member
 class GPio(GPioIf):
     """GPioIf implementation for rpi with RPi.GPIO"""
+
     def __init__(self, pins: Iterable):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)

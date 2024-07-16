@@ -6,6 +6,7 @@ from media_center_kb.relays import Relays, Pins
 
 from .mocks import GPMock
 
+
 class TestRelays(unittest.TestCase):
     """Relays class tests"""
 

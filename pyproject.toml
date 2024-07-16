@@ -20,7 +20,9 @@ dependencies = [
 [project.optional-dependencies]
 tests = [
   "pylint",
-  "pytest"
+  "pytest",
+  "black",
+  "mypy",
 ]
 
 [project.scripts]
@@ -37,3 +39,7 @@ testpaths = ["tests"]
 
 [tool.pylint]
 init-hook='import sys; sys.path.append("./src")'
+
+[tool.mypy]
+exclude = "build"
+ignore_missing_imports = true

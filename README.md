@@ -99,8 +99,8 @@ sudo systemctl --type=service --state=running
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip3 install -e -r requirements.txt
-# or pip install -e .
+pip install -e '.[tests]'
+# or pip3 install -e -r requirements.txt
 ```
 
 ### Test

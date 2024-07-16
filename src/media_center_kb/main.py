@@ -1,6 +1,7 @@
 """
 Entry point module that starts infinite loop reading keyboard
 """
+
 import logging
 import os
 import sys
@@ -17,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 class Shell:  # pylint: disable=too-few-public-methods
     """Callable shell cmd"""
+
     def __call__(self, cmd):
         os.system(cmd)
 
@@ -25,7 +27,7 @@ def main():
     """init dependencies and run kb read loop"""
     argv = sys.argv
     if len(argv) > 1:
-        if argv[1] in ('-d', '--debug', '-v', '--verbose'):
+        if argv[1] in ("-d", "--debug", "-v", "--verbose"):
             logging.basicConfig(level=logging.DEBUG, force=True)
 
     try:
@@ -40,5 +42,5 @@ def main():
         ysp.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

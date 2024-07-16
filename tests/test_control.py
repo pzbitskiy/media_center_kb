@@ -11,25 +11,31 @@ from .mocks import GPMock, YspMock, ShellMock
 
 class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
     """Relays class wrapper for tests"""
+
     def __init__(self, gpio):
         self.cached = {}
         super().__init__(gpio)
 
     def relay(self, relay: int):
         """Return a wrapped relay with extra methods for testing"""
+
         class Wrapped(RelayIf):
             """Wrap relay to track state changes"""
+
             def __init__(self, orig):
                 self.is_on = None
                 self.relay = orig
+
             def on(self):  # pylint: disable=invalid-name
                 """enable and save state"""
                 self.is_on = True
                 self.relay.on()
+
             def off(self):
                 """disable and save state"""
                 self.is_on = False
                 self.relay.off()
+
         result = self.cached.get(relay)
         if not result:
             result = Wrapped(super().relay(relay))
@@ -52,7 +58,9 @@ class TestControl(unittest.TestCase):
             rel = relays.relay(i)
             self.assertFalse(rel.is_on)
 
-    def assertOn(self, relays: Any, on_relays: Iterable):  # pylint: disable=invalid-name
+    def assertOn(
+        self, relays: Any, on_relays: Iterable
+    ):  # pylint: disable=invalid-name
         """assert some relays are on, others off"""
         for i in range(1, 5):
             rel = relays.relay(i)
@@ -68,64 +76,64 @@ class TestControl(unittest.TestCase):
         ysp = YspMock()
 
         handlers = kb_handlers(relays, ysp)
-        handlers.get('UNK', lambda: None)()
+        handlers.get("UNK", lambda: None)()
 
         # tv
-        handlers.get('KEY_KP7')()
+        handlers.get("KEY_KP7")()
         self.assertOn(relays, [1])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_tv)
         self.assertTrue(ysp.is_5beam)
 
-        handlers.get('KEY_KP4')()
+        handlers.get("KEY_KP4")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
         self.assertFalse(ysp.is_input_tv)
         self.assertFalse(ysp.is_input_aux1)
 
         # music stream
-        handlers.get('KEY_KP9')()
+        handlers.get("KEY_KP9")()
         self.assertOn(relays, [1])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_tv)
         self.assertTrue(ysp.is_stereo)
 
-        handlers.get('KEY_KP6')()
+        handlers.get("KEY_KP6")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
         self.assertFalse(ysp.is_input_tv)
         self.assertFalse(ysp.is_input_aux1)
 
         # turntable
-        handlers.get('KEY_KP8')()
+        handlers.get("KEY_KP8")()
         self.assertOn(relays, [1, 3])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_aux1)
         self.assertTrue(ysp.is_stereo)
 
-        handlers.get('KEY_KP5')()
+        handlers.get("KEY_KP5")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
         self.assertFalse(ysp.is_input_tv)
         self.assertFalse(ysp.is_input_aux1)
 
         # printer
-        handlers.get('KEY_KPMINUS')()
+        handlers.get("KEY_KPMINUS")()
         self.assertOn(relays, [4])
         self.assertTrue(ysp.is_power_off)
 
-        handlers.get('KEY_KPPLUS')()
+        handlers.get("KEY_KPPLUS")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
 
         # switch on all, shutdown
-        handlers.get('KEY_KP7')()
-        handlers.get('KEY_KP8')()
-        handlers.get('KEY_KPMINUS')()
+        handlers.get("KEY_KP7")()
+        handlers.get("KEY_KP8")()
+        handlers.get("KEY_KPMINUS")()
         self.assertOn(relays, [1, 3, 4])
         self.assertTrue(ysp.is_power_on)
 
-        handlers.get('KEY_KPENTER')()
+        handlers.get("KEY_KPENTER")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
 
@@ -138,7 +146,7 @@ class TestControl(unittest.TestCase):
         shell = ShellMock()
 
         handlers = kb_handlers(relays, ysp, shell)
-        handlers.get('KEY_ESC')()
+        handlers.get("KEY_ESC")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
-        self.assertEqual('sudo poweroff', shell.last_cmd)
+        self.assertEqual("sudo poweroff", shell.last_cmd)
