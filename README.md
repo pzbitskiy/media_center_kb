@@ -92,3 +92,19 @@ Ensure it is running
 ```sh
 sudo systemctl --type=service --state=running
 ```
+
+## Development
+
+### Setup
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip3 install -e -r requirements.txt
+# or pip install -e .
+```
+
+### Test
+
+```sh
+pytest
+```

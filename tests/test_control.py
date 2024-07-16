@@ -4,7 +4,7 @@ import unittest
 from typing import Any, Iterable
 
 from media_center_kb.relays import Relays, RelayIf
-from media_center_kb.control import control_handlers
+from media_center_kb.control import kb_handlers
 
 from .mocks import GPMock, YspMock, ShellMock
 
@@ -67,7 +67,7 @@ class TestControl(unittest.TestCase):
         relays = WrapRelays(gpio_mock)
         ysp = YspMock()
 
-        handlers = control_handlers(relays, ysp)
+        handlers = kb_handlers(relays, ysp)
         handlers.get('UNK', lambda: None)()
 
         # tv
@@ -98,7 +98,7 @@ class TestControl(unittest.TestCase):
 
         # turntable
         handlers.get('KEY_KP8')()
-        self.assertOn(relays, [1, 2])
+        self.assertOn(relays, [1, 3])
         self.assertTrue(ysp.is_power_on)
         self.assertTrue(ysp.is_input_aux1)
         self.assertTrue(ysp.is_stereo)
@@ -122,7 +122,7 @@ class TestControl(unittest.TestCase):
         handlers.get('KEY_KP7')()
         handlers.get('KEY_KP8')()
         handlers.get('KEY_KPMINUS')()
-        self.assertOn(relays, [1, 2, 4])
+        self.assertOn(relays, [1, 3, 4])
         self.assertTrue(ysp.is_power_on)
 
         handlers.get('KEY_KPENTER')()
@@ -137,7 +137,7 @@ class TestControl(unittest.TestCase):
         ysp = YspMock()
         shell = ShellMock()
 
-        handlers = control_handlers(relays, ysp, shell)
+        handlers = kb_handlers(relays, ysp, shell)
         handlers.get('KEY_ESC')()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)

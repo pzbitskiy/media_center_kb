@@ -7,7 +7,7 @@ import sys
 
 from ysp4000 import YSP4000
 
-from .control import control_handlers
+from .control import kb_handlers
 from .kb import kb_event_loop
 from .relays import Relays, Pins
 from .rpi import GPio
@@ -34,7 +34,7 @@ def main():
         ysp = YSP4000()
         shell = Shell()
 
-        handlers = control_handlers(relays, ysp, shell)
+        handlers = kb_handlers(relays, ysp, shell)
         kb_event_loop(handlers)
     finally:
         ysp.close()

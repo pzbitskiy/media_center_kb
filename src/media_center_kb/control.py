@@ -141,7 +141,7 @@ def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
     return inner
 
 
-def control_handlers(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict[str, Callable]:
+def commands_map(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
     if not shell:
         def noop(_):
@@ -149,26 +149,51 @@ def control_handlers(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict
         shell = noop
 
     return {
-        'KEY_KP7': enable_tv(relays.relay(RelayMap.ysp), ysp),
-        'KEY_KP4': disable_tv(relays.relay(RelayMap.ysp), ysp),
+        'tv_on': enable_tv(relays.relay(RelayMap.ysp), ysp),
+        'tv_off': disable_tv(relays.relay(RelayMap.ysp), ysp),
 
-        'KEY_KP8': enable_turntable(
+        'turntable_on': enable_turntable(
             relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp),
-        'KEY_KP5': disable_turntable(
+        'turntable_off': disable_turntable(
             relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp),
 
-        'KEY_KP9': enable_music_stream(relays.relay(RelayMap.ysp), ysp),
-        'KEY_KP6': disable_music_stream(relays.relay(RelayMap.ysp), ysp),
+        'streaming_on': enable_music_stream(relays.relay(RelayMap.ysp), ysp),
+        'streaming_off': disable_music_stream(relays.relay(RelayMap.ysp), ysp),
 
-        # printer
-        'KEY_KPMINUS': relays.relay(RelayMap.printer).on,
-        'KEY_KPPLUS': relays.relay(RelayMap.printer).off,
+        'printer_on': relays.relay(RelayMap.printer).on,
+        'printer_off': relays.relay(RelayMap.printer).off,
 
-        'KEY_KPENTER': switch_off(relays, ysp),
+        'off': switch_off(relays, ysp),
 
         # YSP volume
-        'KEY_KP0': volume_down(ysp),
-        'KEY_KP1': volume_up(ysp),
+        'volume_up': volume_down(ysp),
+        'volume_down': volume_up(ysp),
 
-        'KEY_ESC': power_off(relays, ysp, shell),
+        'shutdown': power_off(relays, ysp, shell),
+    }
+
+
+def kb_handlers(relays: Relays, ysp: YSP4000, shell: Callable=None) -> Dict[str, Callable]:
+    """Return keys to commands mapping"""
+    cmds = commands_map(relays, ysp, shell)
+
+    return {
+        'KEY_KP7': cmds['tv_on'],
+        'KEY_KP4': cmds['tv_off'],
+
+        'KEY_KP8': cmds['turntable_on'],
+        'KEY_KP5': cmds['turntable_off'],
+
+        'KEY_KP9': cmds['streaming_on'],
+        'KEY_KP6': cmds['streaming_off'],
+
+        'KEY_KPMINUS': cmds['printer_on'],
+        'KEY_KPPLUS': cmds['printer_off'],
+
+        'KEY_KPENTER': cmds['off'],
+
+        'KEY_KP0': cmds['volume_up'],
+        'KEY_KP1': cmds['volume_down'],
+
+        'KEY_ESC': cmds['shutdown'],
     }
