@@ -36,6 +36,9 @@ class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
                 self.is_on = False
                 self.relay.off()
 
+            def enabled(self) -> bool:
+                return self.is_on
+
         result = self.cached.get(relay)
         if not result:
             result = Wrapped(super().relay(relay))

@@ -7,7 +7,6 @@ Relays related functionality:
 from abc import ABC, abstractmethod
 import logging
 from types import SimpleNamespace
-from typing import Any
 
 
 RELAY1_PIN = 6
@@ -61,6 +60,10 @@ class RelayIf(ABC):
     def off(self):
         """disable relay"""
 
+    @abstractmethod
+    def enabled(self) -> bool:
+        """relays state: disabled (false), enabled (true)"""
+
 
 def wrap(method, *args):
     """helper that wraps method"""
@@ -74,8 +77,8 @@ def wrap(method, *args):
 class Relays:
     """Relays class"""
 
-    def __init__(self, gpio: Any):
-        self.gpio = gpio
+    def __init__(self, gpio: GPioIf):
+        self.gpio: GPioIf = gpio
         self.reset()
 
     def reset(self):
@@ -95,11 +98,16 @@ class Relays:
             self.gpio.output(pin, self.gpio.LOW)
             logging.debug("relay %d (%d) off", PIN_TO_RELAY[pin], pin)
 
+    def _get_state(self, pin: int) -> bool:
+        state = self.gpio.input(pin)
+        return state
+
     def relay(self, relay: int) -> RelayIf:
         """Return a simplenamespace object with on/off methods for specific relay"""
         return SimpleNamespace(  # type: ignore[return-value]
             **{
                 "on": wrap(self._relay_on, RELAYS_TO_PIN[relay]),
                 "off": wrap(self._relay_off, RELAYS_TO_PIN[relay]),
+                "enabled": wrap(self._get_state, RELAYS_TO_PIN[relay]),
             }
         )
