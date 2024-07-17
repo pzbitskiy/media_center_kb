@@ -1,24 +1,35 @@
 """HomeAssistant MQTT stuff"""
 
 import asyncio
+from dataclasses import dataclass
 import logging
+from typing import Any, Optional
 
 REFRESH_INTERVAL = 5
+
+
+@dataclass
+class MqttSettings:
+    """MQTT broker connectivity info"""
+
+    host: str
+    port: int
+    username: Optional[str]
+    password: Optional[str]
 
 
 class SmartOutletHaDevice:
     """Smart outlet HA device with MQTT auto discovery"""
 
-    def __init__(self):
-        pass
+    def __init__(self, state_provider: Any, mqtt_settings: MqttSettings):
+        self._state_provider = state_provider
 
     def update_all(self):
         """update all sensors"""
 
 
-async def ha_loop():
+async def ha_loop(device: SmartOutletHaDevice):
     """loop updating MQTT"""
-    device = SmartOutletHaDevice()
     try:
         while True:
             try:
