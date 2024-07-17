@@ -11,8 +11,8 @@ import signal
 
 from ysp4000 import YSP4000
 
-from .control import kb_handlers
-from .ha import ha_loop, MqttSettings, SmartOutletHaDevice
+from .control import commands_map, kb_handlers, POWEROFF_CMD
+from .ha import ha_loop, SmartOutletHaDevice
 from .kb import kb_event_loop
 from .provider import Provider
 from .relays import Relays, Pins
@@ -26,7 +26,9 @@ class Shell:  # pylint: disable=too-few-public-methods
 
     def __call__(self, cmd):
         logging.info("system: %s", cmd)
-        os.system(cmd)
+        if cmd == POWEROFF_CMD:
+            # do not allow other commands at the moment
+            os.system(cmd)
 
 
 def shutdown(loop):
@@ -34,6 +36,11 @@ def shutdown(loop):
     logging.info("Shutdown signal received")
     for task in asyncio.all_tasks(loop):
         task.cancel()
+
+
+async def noop_loop():
+    """Noop implementation when no HA stuff available or needed"""
+    return
 
 
 async def main():
@@ -67,8 +74,7 @@ async def main():
         logging.basicConfig(level=logging.DEBUG, force=True)
     mqtt_settings = None
     if args.mqtt:
-        mqtt_dict = json.load(args.mqtt)
-        mqtt_settings = MqttSettings(**mqtt_dict)
+        mqtt_settings = json.load(args.mqtt)
 
     loop = asyncio.get_running_loop()
 
@@ -82,9 +88,16 @@ async def main():
         ysp = YSP4000()
         shell = Shell()
         handlers = kb_handlers(relays, ysp, shell)
-        ha_device = SmartOutletHaDevice(Provider(relays, ysp), mqtt_settings)
 
-        await asyncio.gather(kb_event_loop(handlers), ha_loop(ha_device))
+        extra_loop = noop_loop()
+        if mqtt_settings:
+            handlers = commands_map(relays, ysp, shell)
+            ha_device = SmartOutletHaDevice(
+                Provider(relays, ysp), handlers, mqtt_settings
+            )
+            extra_loop = ha_loop(ha_device)
+
+        await asyncio.gather(kb_event_loop(handlers), extra_loop)
     except asyncio.CancelledError:
         logging.info("exiting main on cancel")
     finally:

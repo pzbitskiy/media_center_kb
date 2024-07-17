@@ -153,13 +153,16 @@ def volume_up(ysp: YSP4000) -> Callable:
     return inner
 
 
+POWEROFF_CMD = "sudo poweroff"
+
+
 def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
     """power off the entire thing"""
 
     def inner():
         ysp_graceful_power_off(ysp)
         relays.reset()
-        shell("sudo poweroff")
+        shell(POWEROFF_CMD)
 
     return inner
 
