@@ -47,24 +47,28 @@ ls -al /dev/input/keypad
 
 """
 
+import asyncio
 from typing import Dict, Callable
 import logging
 
 from evdev import InputDevice, ecodes, KeyEvent
 
 
-def kb_event_loop(handlers: Dict[str, Callable]):
+async def kb_event_loop(handlers: Dict[str, Callable]):
     """Start keyboard reading loop and call handlers"""
     keypad = InputDevice("/dev/input/keypad")
-    for evt in keypad.read_loop():
-        if (evt.type == ecodes.EV_KEY) and (  # pylint: disable=no-member
-            KeyEvent(evt).keystate == 1
-        ):  # pylint: disable=no-member
-            if KeyEvent(evt).keycode == "KEY_NUMLOCK":
-                continue
+    try:
+        async for evt in keypad.async_read_loop():
+            if (evt.type == ecodes.EV_KEY) and (  # pylint: disable=no-member
+                KeyEvent(evt).keystate == 1
+            ):  # pylint: disable=no-member
+                if KeyEvent(evt).keycode == "KEY_NUMLOCK":
+                    continue
 
-            logging.debug(
-                "scan: %d, key: %s", KeyEvent(evt).scancode, KeyEvent(evt).keycode
-            )
-            handler = handlers.get(KeyEvent(evt).keycode, lambda: None)
-            handler()
+                logging.debug(
+                    "scan: %d, key: %s", KeyEvent(evt).scancode, KeyEvent(evt).keycode
+                )
+                handler = handlers.get(KeyEvent(evt).keycode, lambda: None)
+                handler()
+    except asyncio.CancelledError:
+        logging.info("cancelled kb_event_loop")
