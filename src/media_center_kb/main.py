@@ -11,6 +11,7 @@ import sys
 from ysp4000 import YSP4000
 
 from .control import kb_handlers
+from .ha import ha_loop
 from .kb import kb_event_loop
 from .relays import Relays, Pins
 from .rpi import GPio
@@ -33,11 +34,6 @@ def shutdown(loop):
         task.cancel()
 
 
-async def print_loop():
-    """Placeholder-demo for the second async loop"""
-    return
-
-
 async def main():
     """init dependencies and run kb read loop"""
     argv = sys.argv
@@ -58,7 +54,7 @@ async def main():
         shell = Shell()
         handlers = kb_handlers(relays, ysp, shell)
 
-        await asyncio.gather(kb_event_loop(handlers), print_loop())
+        await asyncio.gather(kb_event_loop(handlers), ha_loop())
     except asyncio.CancelledError:
         logging.info("exiting main on cancel")
     finally:
