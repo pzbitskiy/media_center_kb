@@ -193,8 +193,8 @@ def commands_map(
         "printer_off": relays.relay(RelayMap.printer).off,
         "off": switch_off(relays, ysp),
         # YSP volume
-        "volume_up": volume_down(ysp),
-        "volume_down": volume_up(ysp),
+        "volume_down": volume_down(ysp),
+        "volume_up": volume_up(ysp),
         "shutdown": power_off(relays, ysp, shell),
     }
 
