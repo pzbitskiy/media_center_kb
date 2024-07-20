@@ -11,12 +11,12 @@ import signal
 
 from ysp4000.ysp import Ysp4000
 
-from .control import commands_map, kb_handlers, POWEROFF_CMD
-from .ha import ha_loop, SmartOutletHaDevice
-from .kb import kb_event_loop
-from .provider import Provider
-from .relays import Relays, Pins
-from .rpi import GPio
+from media_center_kb.control import commands_map, kb_handlers, POWEROFF_CMD
+from media_center_kb.ha import ha_loop, SmartOutletHaDevice
+from media_center_kb.kb import kb_event_loop
+from media_center_kb.provider import Provider
+from media_center_kb.relays import Relays, Pins
+from media_center_kb.rpi import GPio
 
 logging.basicConfig(level=logging.INFO)
 
