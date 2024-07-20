@@ -5,7 +5,7 @@ Control action for each key
 import time
 from typing import Callable, Dict, Optional
 
-from ysp4000 import YSP4000
+from ysp4000.ysp import Ysp4000
 from .relays import Relays, RelayIf
 
 
@@ -18,14 +18,14 @@ class RelayMap:  # pylint: disable=too-few-public-methods
     printer = 4
 
 
-def ysp_graceful_power_off(ysp: YSP4000):
+def ysp_graceful_power_off(ysp: Ysp4000):
     """Power offs YSP with 1s delay"""
     ysp.power_off()
     # give YSP change to power off. 1s looks a lot who cares, it is switching off
     time.sleep(1)
 
 
-def enable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
+def enable_tv(relay: RelayIf, ysp: Ysp4000) -> Callable:
     """
     power on soundbar
     turn on soundbar
@@ -45,7 +45,7 @@ def enable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
     return inner
 
 
-def disable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
+def disable_tv(relay: RelayIf, ysp: Ysp4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -59,7 +59,7 @@ def disable_tv(relay: RelayIf, ysp: YSP4000) -> Callable:
     return inner
 
 
-def enable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
+def enable_music_stream(relay: RelayIf, ysp: Ysp4000) -> Callable:
     """
     power on soundbar
     turn on soundbar
@@ -77,7 +77,7 @@ def enable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
     return inner
 
 
-def disable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
+def disable_music_stream(relay: RelayIf, ysp: Ysp4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -90,7 +90,7 @@ def disable_music_stream(relay: RelayIf, ysp: YSP4000) -> Callable:
     return inner
 
 
-def enable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callable:
+def enable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000) -> Callable:
     """
     power on soundbar (relay 1)
     turn on soundbar
@@ -110,7 +110,7 @@ def enable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callable
     return inner
 
 
-def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callable:
+def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000) -> Callable:
     """
     turn off soundbar
     power off soundbar
@@ -125,7 +125,7 @@ def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: YSP4000) -> Callabl
     return inner
 
 
-def switch_off(relays: Relays, ysp: YSP4000) -> Callable:
+def switch_off(relays: Relays, ysp: Ysp4000) -> Callable:
     """switch off everything except the controller"""
 
     def inner():
@@ -135,7 +135,7 @@ def switch_off(relays: Relays, ysp: YSP4000) -> Callable:
     return inner
 
 
-def volume_down(ysp: YSP4000) -> Callable:
+def volume_down(ysp: Ysp4000) -> Callable:
     """YSP volume control"""
 
     def inner():
@@ -144,7 +144,7 @@ def volume_down(ysp: YSP4000) -> Callable:
     return inner
 
 
-def volume_up(ysp: YSP4000) -> Callable:
+def volume_up(ysp: Ysp4000) -> Callable:
     """YSP volume control"""
 
     def inner():
@@ -156,7 +156,7 @@ def volume_up(ysp: YSP4000) -> Callable:
 POWEROFF_CMD = "sudo poweroff"
 
 
-def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
+def power_off(relays: Relays, ysp: Ysp4000, shell: Callable) -> Callable:
     """power off the entire thing"""
 
     def inner():
@@ -168,7 +168,7 @@ def power_off(relays: Relays, ysp: YSP4000, shell: Callable) -> Callable:
 
 
 def commands_map(
-    relays: Relays, ysp: YSP4000, shell: Optional[Callable] = None
+    relays: Relays, ysp: Ysp4000, shell: Optional[Callable] = None
 ) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
     if not shell:
@@ -200,7 +200,7 @@ def commands_map(
 
 
 def kb_handlers(
-    relays: Relays, ysp: YSP4000, shell: Optional[Callable] = None
+    relays: Relays, ysp: Ysp4000, shell: Optional[Callable] = None
 ) -> Dict[str, Callable]:
     """Return keys to commands mapping"""
     cmds = commands_map(relays, ysp, shell)

@@ -9,7 +9,7 @@ import logging
 import os
 import signal
 
-from ysp4000 import YSP4000
+from ysp4000.ysp import Ysp4000
 
 from .control import commands_map, kb_handlers, POWEROFF_CMD
 from .ha import ha_loop, SmartOutletHaDevice
@@ -85,9 +85,11 @@ async def main():
     try:
         gpio = GPio(Pins)
         relays = Relays(gpio)
-        ysp = YSP4000()
+        ysp = Ysp4000(verbose=True)
         shell = Shell()
         handlers = kb_handlers(relays, ysp, shell)
+
+        ysp_coro = ysp.get_async_coro(loop)
 
         extra_loop = noop_loop()
         if mqtt_settings:
@@ -97,7 +99,7 @@ async def main():
             )
             extra_loop = ha_loop(ha_device)
 
-        await asyncio.gather(kb_event_loop(handlers), extra_loop)
+        await asyncio.gather(kb_event_loop(handlers), ysp_coro, extra_loop)
     except asyncio.CancelledError:
         logging.info("exiting main on cancel")
     finally:
