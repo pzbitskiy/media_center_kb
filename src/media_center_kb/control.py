@@ -215,7 +215,7 @@ def kb_handlers(
         "KEY_KPMINUS": cmds["printer_on"],
         "KEY_KPPLUS": cmds["printer_off"],
         "KEY_KPENTER": cmds["off"],
-        "KEY_KP0": cmds["volume_up"],
-        "KEY_KP1": cmds["volume_down"],
+        "KEY_KP1": cmds["volume_up"],
+        "KEY_KP0": cmds["volume_down"],
         "KEY_ESC": cmds["shutdown"],
     }
