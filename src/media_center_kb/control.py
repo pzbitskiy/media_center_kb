@@ -153,6 +153,15 @@ def volume_up(ysp: Ysp4000) -> Callable:
     return inner
 
 
+def volume_set(ysp: Ysp4000) -> Callable:
+    """YSP volume control"""
+
+    def inner(val: int):
+        ysp.set_volume(val)
+
+    return inner
+
+
 POWEROFF_CMD = "sudo poweroff"
 
 
@@ -195,6 +204,7 @@ def commands_map(
         # YSP volume
         "volume_down": volume_down(ysp),
         "volume_up": volume_up(ysp),
+        "volume_set": volume_set(ysp),
         "shutdown": power_off(relays, ysp, shell),
     }
 

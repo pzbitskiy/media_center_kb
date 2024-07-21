@@ -20,13 +20,12 @@ REFRESH_INTERVAL = 5
 def get_mac_address() -> str:
     """Returns device MAC address"""
     mac = uuid.getnode()
-    mac_address = ":".join(
-        ("%012X" % mac)[i : i + 2] for i in range(0, 12, 2)
-    )  # pylint: disable=consider-using-f-string
+    # pylint: disable=consider-using-f-string
+    mac_address = ":".join(("%012X" % mac)[i : i + 2] for i in range(0, 12, 2))
     return mac_address
 
 
-class SmartOutletHaDevice:
+class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
     """Smart outlet HA device with MQTT auto discovery"""
 
     def __init__(
@@ -118,7 +117,7 @@ class SmartOutletHaDevice:
 
         tv_volume_info = NumberInfo(
             name="TV Volume",
-            min=1,
+            min=0,
             max=100,
             mode="slider",
             step=1,
@@ -128,6 +127,20 @@ class SmartOutletHaDevice:
         tv_volume_settings = Settings(mqtt=self._mqtt_settings, entity=tv_volume_info)
         self._tv_volume = Number(
             tv_volume_settings, lambda c, u, m: self.volume_mqtt(c, m)
+        )
+
+        turntable_volume_info = NumberInfo(
+            name="Turntable Volume",
+            min=0,
+            max=100,
+            mode="slider",
+            step=1,
+            unique_id=turntable_device_id + "-vol",
+            device=self._turntable_device_info,
+        )
+        turntable_volume_settings = Settings(mqtt=self._mqtt_settings, entity=turntable_volume_info)
+        self._turntable_volume = Number(
+            turntable_volume_settings, lambda c, u, m: self.volume_mqtt(c, m)
         )
 
     def announce(self):
@@ -156,8 +169,8 @@ class SmartOutletHaDevice:
         self, client: Client, user_data, message: MQTTMessage
     ):  # pylint: disable=unused-argument
         """MQTT callback for printer switch"""
-        logging.debug("printer_switch_mqtt: %s", payload)
         payload = message.payload.decode()
+        logging.debug("printer_switch_mqtt: %s", payload)
         if payload == "OFF":
             self._handlers["printer_off"]()
             self._printer_switch.off()
@@ -169,8 +182,8 @@ class SmartOutletHaDevice:
         self, client: Client, user_data, message: MQTTMessage
     ):  # pylint: disable=unused-argument
         """MQTT callback for printer switch"""
-        logging.debug("tv_switch_mqtt: %s", payload)
         payload = message.payload.decode()
+        logging.debug("tv_switch_mqtt: %s", payload)
         if payload == "OFF":
             self._handlers["tv_off"]()
             self._tv_switch.off()
@@ -182,8 +195,8 @@ class SmartOutletHaDevice:
         self, client: Client, user_data, message: MQTTMessage
     ):  # pylint: disable=unused-argument
         """MQTT callback for printer switch"""
-        logging.debug("turntable_switch_mqtt: %s", payload)
         payload = message.payload.decode()
+        logging.debug("turntable_switch_mqtt: %s", payload)
         if payload == "OFF":
             self._handlers["turntable_off"]()
             self._tv_switch.off()
@@ -194,7 +207,9 @@ class SmartOutletHaDevice:
     def volume_mqtt(
         self, client: Client, message: MQTTMessage
     ):  # pylint: disable=unused-argument
-        pass
+        """MQTT callback for volume"""
+        vol = int(message.payload.decode())
+        self._handlers["volume_set"](vol)
 
     def update_all(self):
         """update all sensors"""
