@@ -2,18 +2,20 @@
 
 ## Project goals
 
-To have a device managing bunch of connected electronics (soundbar, turntable, preamp, printer, etc)
-from a physical mini keyboard:
+To control some connected electronics (soundbar, turntable, preamp, printer, etc) from a physical mini keyboard:
 1. Turn on/off printer
 2. Turn on/off soundbar + turntable
 3. Turn on/off soundbar + select mode for movie watching or music streaming
+
+Extra:
+4. Expose to HomeAssistant as MQTT device(s) to eventually control it via intents.
 
 ## Hardware
 
 1. Raspberry Pi 2B
 2. Relays controller with 4 relays
-3. YSP-4000 soundbar (see [ysp-4000 repo](https://github.com/pzbitskiy/yamaha-ysp-4000))
-4. Dell 1700 printer (CUPS + Lexmark E234 PPD)
+3. YSP-4000 soundbar (see [ysp4000 repository](https://github.com/pzbitskiy/yamaha-ysp-4000))
+4. Dumb but solid Dell 1700 printer (CUPS + Lexmark E234 PPD)
 5. Turntable and preamp
 
 ### Keyboard setup
@@ -40,10 +42,10 @@ Now the keyboard can be opened as `/dev/input/keypad` device:
 keypad = InputDevice('/dev/input/keypad')
 ```
 
-### Relays and RPi
+### Relays, outlets and RPi
 
 See the wiring diagram
-![wiring](rpi-relays.png)
+![wiring](docs/wiring.png)
 
 ## Installation instructions
 
@@ -60,7 +62,7 @@ On the device
 ```sh
 pip3 install --upgrade --user git+https://github.com/pzbitskiy/media_center_kb
 
-# test
+# Run in foreground with verbose logging to ensure it works as intended
 mediackb -v
 ```
 
