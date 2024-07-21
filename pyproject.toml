@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media_center_kb"
-version = "0.1"
-description = "Media Center Keyboard"
+version = "0.2"
+description = "Media Center Controller"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License"
@@ -15,7 +15,7 @@ classifiers = [
 dependencies = [
   "evdev",
   "RPi.GPIO",
-  "yamaha-ysp-4000@git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.1.0",
+  "yamaha-ysp-4000@git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.2.0",
   "ha-mqtt-discoverable==0.14.0",
 ]
 [project.optional-dependencies]

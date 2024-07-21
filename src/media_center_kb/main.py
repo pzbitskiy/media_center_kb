@@ -65,7 +65,6 @@ async def main():
         "--mqtt",
         dest="mqtt",
         type=argparse.FileType("rt", encoding="utf8"),
-        action="store_true",
         help="Verbose output",
     )
     args = parser.parse_args()
