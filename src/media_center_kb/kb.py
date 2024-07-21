@@ -53,6 +53,8 @@ import logging
 
 from evdev import InputDevice, ecodes, KeyEvent
 
+logger = logging.getLogger("kbb")
+
 
 async def kb_event_loop(handlers: Dict[str, Callable]):
     """Start keyboard reading loop and call handlers"""
@@ -65,10 +67,10 @@ async def kb_event_loop(handlers: Dict[str, Callable]):
                 if KeyEvent(evt).keycode == "KEY_NUMLOCK":
                     continue
 
-                logging.debug(
+                logger.debug(
                     "scan: %d, key: %s", KeyEvent(evt).scancode, KeyEvent(evt).keycode
                 )
                 handler = handlers.get(KeyEvent(evt).keycode, lambda: None)
                 handler()
     except asyncio.CancelledError:
-        logging.info("cancelled kb_event_loop")
+        logger.info("cancelled kb_event_loop")

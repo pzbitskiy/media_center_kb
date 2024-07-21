@@ -18,14 +18,28 @@ from media_center_kb.provider import Provider
 from media_center_kb.relays import Relays, Pins
 from media_center_kb.rpi import GPio
 
-logging.basicConfig(level=logging.INFO)
+
+def init_logging(level=None, **kwargs):
+    """init logging"""
+    if not level:
+        level = logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+        **kwargs,
+    )
+
+
+init_logging()
+logger = logging.getLogger("mcc")
 
 
 class Shell:  # pylint: disable=too-few-public-methods
     """Callable shell cmd"""
 
     def __call__(self, cmd):
-        logging.info("system: %s", cmd)
+        logger.info("system: %s", cmd)
         if cmd == POWEROFF_CMD:
             # do not allow other commands at the moment
             os.system(cmd)
@@ -33,7 +47,7 @@ class Shell:  # pylint: disable=too-few-public-methods
 
 def shutdown(loop):
     """Handle signals to cancel event loop"""
-    logging.info("Shutdown signal received")
+    logger.info("Shutdown signal received")
     for task in asyncio.all_tasks(loop):
         task.cancel()
 
@@ -69,8 +83,11 @@ async def main():
     )
     args = parser.parse_args()
 
+    verbose = False
     if args.verbose or args.debug:
-        logging.basicConfig(level=logging.DEBUG, force=True)
+        verbose = True
+        init_logging(level=logging.DEBUG, force=True)
+
     mqtt_settings = None
     if args.mqtt:
         mqtt_settings = json.load(args.mqtt)
@@ -84,7 +101,7 @@ async def main():
     try:
         gpio = GPio(Pins)
         relays = Relays(gpio)
-        ysp = Ysp4000(verbose=True)
+        ysp = Ysp4000(verbose=verbose)
         shell = Shell()
         handlers = kb_handlers(relays, ysp, shell)
 
@@ -100,7 +117,7 @@ async def main():
 
         await asyncio.gather(kb_event_loop(handlers), ysp_coro, extra_loop)
     except asyncio.CancelledError:
-        logging.info("exiting main on cancel")
+        logger.info("exiting main on cancel")
     finally:
         ysp.close()
 
