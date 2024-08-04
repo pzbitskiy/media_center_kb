@@ -21,7 +21,7 @@ def get_mac_address() -> str:
     """Returns device MAC address"""
     mac = uuid.getnode()
     # pylint: disable=consider-using-f-string
-    mac_address = ":".join(("%012X" % mac)[i : i + 2] for i in range(0, 12, 2))
+    mac_address = "".join(("%012x" % mac)[i : i + 2] for i in range(0, 12, 2))
     return mac_address
 
 
@@ -37,29 +37,25 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
         self._initialize_devices()
 
-    def _initialize_devices(self):
+    def _initialize_devices(self):  # pylint: disable=too-many-locals
         """Add sensors/switches/devices"""
         # add all devices
         rpi_device_id = get_mac_address()
         self._rpi_device_info = DeviceInfo(
             name="Media Center Controller",
-            model="RPi Smart Outlet v1",
-            manufacturer="RPi",
+            model="RPi Smart Outlet v2",
+            manufacturer="DIY(tm)",
             identifiers=rpi_device_id,
         )
-        tv_device_id = rpi_device_id + "-tv-sound"
-        self._tv_device_info = DeviceInfo(
-            name="TV Sound",
-            model="YSP4000",
-            manufacturer="Yamaha",
-            identifiers=tv_device_id,
+        bt_device_id = rpi_device_id + "bt-sound"
+        self._bt_device_info = DeviceInfo(
+            name="Bluetooth Sound",
+            identifiers=bt_device_id,
             via_device=rpi_device_id,
         )
         turntable_device_id = rpi_device_id + "-turntable"
         self._turntable_device_info = DeviceInfo(
             name="Turntable",
-            model="SL-D3",
-            manufacturer="Technics",
             identifiers=turntable_device_id,
             via_device=rpi_device_id,
         )
@@ -82,25 +78,14 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         rpi_switch_settings = Settings(mqtt=self._mqtt_settings, entity=rpi_switch_info)
         self._rpi_switch = Switch(rpi_switch_settings, self.rpi_switch_mqtt)
 
-        printer_switch_info = SwitchInfo(
-            name="Printer",
-            device_class="outlet",
-            unique_id=printer_device_id + "-switch",
-            device=self._printer_device_info,
-        )
-        printer_switch_settings = Settings(
-            mqtt=self._mqtt_settings, entity=printer_switch_info
-        )
-        self._printer_switch = Switch(printer_switch_settings, self.printer_switch_mqtt)
-
-        tv_switch_info = SwitchInfo(
-            name="Soundbar",
+        bt_switch_info = SwitchInfo(
+            name="Bluetooth Sound",
             device_class="switch",
-            unique_id=tv_device_id + "-switch",
-            device=self._tv_device_info,
+            unique_id=bt_device_id + "-switch",
+            device=self._bt_device_info,
         )
-        tv_switch_settings = Settings(mqtt=self._mqtt_settings, entity=tv_switch_info)
-        self._tv_switch = Switch(tv_switch_settings, self.tv_switch_mqtt)
+        bt_switch_settings = Settings(mqtt=self._mqtt_settings, entity=bt_switch_info)
+        self._bt_switch = Switch(bt_switch_settings, self.bt_switch_mqtt)
 
         turntable_switch_info = SwitchInfo(
             name="Turntable",
@@ -115,18 +100,30 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             turntable_switch_settings, self.turnable_switch_mqtt
         )
 
-        tv_volume_info = NumberInfo(
-            name="TV Volume",
+        printer_switch_info = SwitchInfo(
+            name="Printer",
+            device_class="outlet",
+            unique_id=printer_device_id + "-switch",
+            device=self._printer_device_info,
+        )
+        printer_switch_settings = Settings(
+            mqtt=self._mqtt_settings, entity=printer_switch_info
+        )
+        self._printer_switch = Switch(printer_switch_settings, self.printer_switch_mqtt)
+
+        # add volume
+        bt_volume_info = NumberInfo(
+            name="Bluetooth Sound Volume",
             min=0,
             max=100,
             mode="slider",
             step=1,
-            unique_id=tv_device_id + "-vol",
-            device=self._tv_device_info,
+            unique_id=bt_device_id + "-vol",
+            device=self._bt_device_info,
         )
-        tv_volume_settings = Settings(mqtt=self._mqtt_settings, entity=tv_volume_info)
-        self._tv_volume = Number(
-            tv_volume_settings, lambda c, u, m: self.volume_mqtt(c, m)
+        bt_volume_settings = Settings(mqtt=self._mqtt_settings, entity=bt_volume_info)
+        self._bt_volume = Number(
+            bt_volume_settings, lambda c, u, m: self.volume_mqtt(c, m)
         )
 
         turntable_volume_info = NumberInfo(
@@ -138,7 +135,9 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             unique_id=turntable_device_id + "-vol",
             device=self._turntable_device_info,
         )
-        turntable_volume_settings = Settings(mqtt=self._mqtt_settings, entity=turntable_volume_info)
+        turntable_volume_settings = Settings(
+            mqtt=self._mqtt_settings, entity=turntable_volume_info
+        )
         self._turntable_volume = Number(
             turntable_volume_settings, lambda c, u, m: self.volume_mqtt(c, m)
         )
@@ -146,9 +145,13 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
     def announce(self):
         """Publish devices over MQTT"""
         self._rpi_switch.on()
+
         self._printer_switch.off()
-        self._tv_switch.off()
-        self._tv_volume.set_value(0)
+        self._bt_switch.off()
+        self._turntable_switch.off()
+
+        self._bt_volume.set_value(0)
+        self._turntable_volume.set_value(0)
 
     def rpi_switch_mqtt(
         self, client: Client, user_data, message: MQTTMessage
@@ -178,18 +181,18 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             self._handlers["printer_on"]()
             self._printer_switch.on()
 
-    def tv_switch_mqtt(
+    def bt_switch_mqtt(
         self, client: Client, user_data, message: MQTTMessage
     ):  # pylint: disable=unused-argument
         """MQTT callback for printer switch"""
         payload = message.payload.decode()
-        logging.debug("tv_switch_mqtt: %s", payload)
+        logging.debug("bt_switch_mqtt: %s", payload)
         if payload == "OFF":
             self._handlers["tv_off"]()
-            self._tv_switch.off()
+            self._bt_switch.off()
         elif payload == "ON":
             self._handlers["tv_on"]()
-            self._tv_switch.on()
+            self._bt_switch.on()
 
     def turnable_switch_mqtt(
         self, client: Client, user_data, message: MQTTMessage
@@ -199,10 +202,10 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         logging.debug("turntable_switch_mqtt: %s", payload)
         if payload == "OFF":
             self._handlers["turntable_off"]()
-            self._tv_switch.off()
+            self._bt_switch.off()
         elif payload == "ON":
             self._handlers["turntable_on"]()
-            self._tv_switch.on()
+            self._bt_switch.on()
 
     def volume_mqtt(
         self, client: Client, message: MQTTMessage
@@ -213,6 +216,17 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
     def update_all(self):
         """update all sensors"""
+        vol = self._state_provider.get_volume()
+        self._bt_volume.set_value(vol)
+        self._turntable_volume.set_value(vol)
+
+        self._bt_switch.update_state(bool(self._state_provider.get_switch("tv")))
+        self._turntable_switch.update_state(
+            bool(self._state_provider.get_switch("turntable"))
+        )
+        self._printer_switch.update_state(
+            bool(self._state_provider.get_switch("printer"))
+        )
 
 
 async def ha_loop(device: SmartOutletHaDevice):
@@ -228,3 +242,16 @@ async def ha_loop(device: SmartOutletHaDevice):
             await asyncio.sleep(REFRESH_INTERVAL)
     except asyncio.CancelledError:
         logging.info("cancelled ha_loop")
+
+
+async def main():
+    """main func used for quick tests"""
+    ha_device = SmartOutletHaDevice(
+        None, None, mqtt_settings={"host": "localhost", "port": 1883}
+    )
+    extra_loop = ha_loop(ha_device)
+    await asyncio.gather(extra_loop)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
