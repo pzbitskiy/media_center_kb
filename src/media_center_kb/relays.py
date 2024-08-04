@@ -5,26 +5,28 @@ Relays related functionality:
 """
 
 from abc import ABC, abstractmethod
+from enum import Enum
 import logging
 from types import SimpleNamespace
 
 
-RELAY1_PIN = 6
-RELAY2_PIN = 13
-RELAY3_PIN = 19
-RELAY4_PIN = 26
+class _RelayPins(Enum):
+    RELAY1_PIN = 6
+    RELAY2_PIN = 13
+    RELAY3_PIN = 19
+    RELAY4_PIN = 26
 
 
-PIN_TO_RELAY = {
-    RELAY1_PIN: 1,
-    RELAY2_PIN: 2,
-    RELAY3_PIN: 3,
-    RELAY4_PIN: 4,
+_PIN_TO_RELAY = {
+    _RelayPins.RELAY1_PIN.value: 1,
+    _RelayPins.RELAY2_PIN.value: 2,
+    _RelayPins.RELAY3_PIN.value: 3,
+    _RelayPins.RELAY4_PIN.value: 4,
 }
 
-RELAYS_TO_PIN = {v: k for k, v in PIN_TO_RELAY.items()}
+_RELAYS_TO_PIN = {v: k for k, v in _PIN_TO_RELAY.items()}
 
-Pins = PIN_TO_RELAY.keys()
+Pins = _PIN_TO_RELAY.keys()
 
 
 class GPioIf(ABC):
@@ -65,7 +67,19 @@ class RelayIf(ABC):
         """relays state: disabled (false), enabled (true)"""
 
 
-def wrap(method, *args):
+class RelayModuleIf(ABC):
+    """Relay module board interface"""
+
+    @abstractmethod
+    def reset(self):
+        """Switch off all relays"""
+
+    @abstractmethod
+    def relay(self, relay: int) -> RelayIf:
+        """Return a specific relay"""
+
+
+def _wrap(method, *args):
     """helper that wraps method"""
 
     def inner():
@@ -74,40 +88,41 @@ def wrap(method, *args):
     return inner
 
 
-class Relays:
-    """Relays class"""
+class RelayModule(RelayModuleIf):
+    """Relay module class"""
 
-    def __init__(self, gpio: GPioIf):
-        self.gpio: GPioIf = gpio
+    def __init__(self, gpio: GPioIf, logger: logging.Logger):
+        self._gpio: GPioIf = gpio
+        self._logger = logger
         self.reset()
 
     def reset(self):
         """Switch off all relays"""
-        for pin in PIN_TO_RELAY:
+        for pin in _PIN_TO_RELAY:
             self._relay_off(pin)
 
     def _relay_on(self, pin: int):
-        state = self.gpio.input(pin)
+        state = self._gpio.input(pin)
         if not state:
-            self.gpio.output(pin, self.gpio.HIGH)
-            logging.debug("relay %d (%d) on", PIN_TO_RELAY[pin], pin)
+            self._gpio.output(pin, self._gpio.HIGH)
+            self._logger.debug("relay %d (%d) on", _PIN_TO_RELAY[pin], pin)
 
     def _relay_off(self, pin: int):
-        state = self.gpio.input(pin)
+        state = self._gpio.input(pin)
         if state:
-            self.gpio.output(pin, self.gpio.LOW)
-            logging.debug("relay %d (%d) off", PIN_TO_RELAY[pin], pin)
+            self._gpio.output(pin, self._gpio.LOW)
+            self._logger.debug("relay %d (%d) off", _PIN_TO_RELAY[pin], pin)
 
     def _get_state(self, pin: int) -> bool:
-        state = self.gpio.input(pin)
+        state = self._gpio.input(pin)
         return state
 
     def relay(self, relay: int) -> RelayIf:
         """Return a simplenamespace object with on/off methods for specific relay"""
         return SimpleNamespace(  # type: ignore[return-value]
             **{
-                "on": wrap(self._relay_on, RELAYS_TO_PIN[relay]),
-                "off": wrap(self._relay_off, RELAYS_TO_PIN[relay]),
-                "enabled": wrap(self._get_state, RELAYS_TO_PIN[relay]),
+                "on": _wrap(self._relay_on, _RELAYS_TO_PIN[relay]),
+                "off": _wrap(self._relay_off, _RELAYS_TO_PIN[relay]),
+                "enabled": _wrap(self._get_state, _RELAYS_TO_PIN[relay]),
             }
         )

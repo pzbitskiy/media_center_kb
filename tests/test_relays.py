@@ -2,9 +2,9 @@
 
 import unittest
 
-from media_center_kb.relays import Relays, Pins
+from media_center_kb.relays import RelayModule, Pins
 
-from .mocks import GPMock
+from .mocks import GPMock, LoggerMock
 
 
 class TestRelays(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestRelays(unittest.TestCase):
     def test_on_off(self):
         """Test relays switch on/off"""
         gpio_mock = GPMock()
-        relays = Relays(gpio_mock)
+        relays = RelayModule(gpio_mock, LoggerMock())
 
         for pin in Pins:
             # pylint: disable=protected-access
@@ -36,7 +36,7 @@ class TestRelays(unittest.TestCase):
     def test_get_relay(self):
         """Test individual relays switch"""
         gpio_mock = GPMock()
-        relays = Relays(gpio_mock)
+        relays = RelayModule(gpio_mock, LoggerMock())
 
         pins = iter(Pins)
         for i in range(1, 5):
@@ -53,7 +53,7 @@ class TestRelays(unittest.TestCase):
     def test_reset(self):
         """Test all relays reset"""
         gpio_mock = GPMock()
-        relays = Relays(gpio_mock)
+        relays = RelayModule(gpio_mock, LoggerMock())
 
         for pin in Pins:
             # pylint: disable=protected-access

@@ -15,7 +15,7 @@ from media_center_kb.control import commands_map, kb_handlers, POWEROFF_CMD
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
 from media_center_kb.provider import Provider
-from media_center_kb.relays import Relays, Pins
+from media_center_kb.relays import RelayModule, Pins
 from media_center_kb.rpi import GPio
 
 
@@ -100,7 +100,7 @@ async def main():
 
     try:
         gpio = GPio(Pins)
-        relays = Relays(gpio)
+        relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
         shell = Shell()
         handlers = kb_handlers(relays, ysp, shell)

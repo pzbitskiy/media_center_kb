@@ -3,18 +3,18 @@
 import unittest
 from typing import Any, Iterable
 
-from media_center_kb.relays import Relays, RelayIf
+from media_center_kb.relays import RelayModule, RelayIf
 from media_center_kb.control import kb_handlers
 
-from .mocks import GPMock, YspMock, ShellMock
+from .mocks import GPMock, LoggerMock, ShellMock, YspMock
 
 
-class WrapRelays(Relays):  # pylint: disable=too-few-public-methods
+class WrapRelays(RelayModule):  # pylint: disable=too-few-public-methods
     """Relays class wrapper for tests"""
 
     def __init__(self, gpio):
         self.cached = {}
-        super().__init__(gpio)
+        super().__init__(gpio, LoggerMock())
 
     def relay(self, relay: int):
         """Return a wrapped relay with extra methods for testing"""

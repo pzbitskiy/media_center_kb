@@ -2,20 +2,21 @@
 Control action for each key
 """
 
+from enum import Enum
 import time
 from typing import Callable, Dict, Optional
 
 from ysp4000.ysp import Ysp4000
-from .relays import Relays, RelayIf
+from media_center_kb.relays import RelayModuleIf, RelayIf
 
 
-class RelayMap:  # pylint: disable=too-few-public-methods
+class RelayMap(Enum):
     """Maps symbol names to relay numbers"""
 
-    ysp = 1
-    tbd = 2
-    turntable = 3
-    printer = 4
+    YSP = 1
+    _TDB = 2
+    TURNTABLE = 3
+    PRINTER = 4
 
 
 def ysp_graceful_power_off(ysp: Ysp4000):
@@ -125,7 +126,7 @@ def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000) -> Callabl
     return inner
 
 
-def switch_off(relays: Relays, ysp: Ysp4000) -> Callable:
+def switch_off(relays: RelayModuleIf, ysp: Ysp4000) -> Callable:
     """switch off everything except the controller"""
 
     def inner():
@@ -165,7 +166,7 @@ def volume_set(ysp: Ysp4000) -> Callable:
 POWEROFF_CMD = "sudo poweroff"
 
 
-def power_off(relays: Relays, ysp: Ysp4000, shell: Callable) -> Callable:
+def power_off(relays: RelayModuleIf, ysp: Ysp4000, shell: Callable) -> Callable:
     """power off the entire thing"""
 
     def inner():
@@ -177,7 +178,7 @@ def power_off(relays: Relays, ysp: Ysp4000, shell: Callable) -> Callable:
 
 
 def commands_map(
-    relays: Relays, ysp: Ysp4000, shell: Optional[Callable] = None
+    relays: RelayModuleIf, ysp: Ysp4000, shell: Optional[Callable] = None
 ) -> Dict[str, Callable]:
     """Returns dict of handlers by keycode"""
     if not shell:
@@ -188,18 +189,22 @@ def commands_map(
         shell = noop
 
     return {
-        "tv_on": enable_tv(relays.relay(RelayMap.ysp), ysp),
-        "tv_off": disable_tv(relays.relay(RelayMap.ysp), ysp),
+        "tv_on": enable_tv(relays.relay(RelayMap.YSP.value), ysp),
+        "tv_off": disable_tv(relays.relay(RelayMap.YSP.value), ysp),
         "turntable_on": enable_turntable(
-            relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp
+            relays.relay(RelayMap.YSP.value),
+            relays.relay(RelayMap.TURNTABLE.value),
+            ysp,
         ),
         "turntable_off": disable_turntable(
-            relays.relay(RelayMap.ysp), relays.relay(RelayMap.turntable), ysp
+            relays.relay(RelayMap.YSP.value),
+            relays.relay(RelayMap.TURNTABLE.value),
+            ysp,
         ),
-        "streaming_on": enable_music_stream(relays.relay(RelayMap.ysp), ysp),
-        "streaming_off": disable_music_stream(relays.relay(RelayMap.ysp), ysp),
-        "printer_on": relays.relay(RelayMap.printer).on,
-        "printer_off": relays.relay(RelayMap.printer).off,
+        "streaming_on": enable_music_stream(relays.relay(RelayMap.YSP.value), ysp),
+        "streaming_off": disable_music_stream(relays.relay(RelayMap.YSP.value), ysp),
+        "printer_on": relays.relay(RelayMap.PRINTER.value).on,
+        "printer_off": relays.relay(RelayMap.PRINTER.value).off,
         "off": switch_off(relays, ysp),
         # YSP volume
         "volume_down": volume_down(ysp),
@@ -210,7 +215,7 @@ def commands_map(
 
 
 def kb_handlers(
-    relays: Relays, ysp: Ysp4000, shell: Optional[Callable] = None
+    relays: RelayModuleIf, ysp: Ysp4000, shell: Optional[Callable] = None
 ) -> Dict[str, Callable]:
     """Return keys to commands mapping"""
     cmds = commands_map(relays, ysp, shell)

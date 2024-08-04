@@ -1,5 +1,7 @@
 """Test common utilities and mocks"""
 
+import logging
+
 from media_center_kb.relays import GPioIf
 
 # pylint: disable=missing-function-docstring,invalid-name
@@ -102,3 +104,31 @@ class ShellMock:  # pylint: disable=too-few-public-methods
 
     def __call__(self, cmd):
         self.last_cmd = cmd
+
+
+class LoggerMock:
+    """Mock for logging"""
+
+    def __init__(self):
+        self._level = None
+
+    def setLevel(self, level):
+        """
+        Set the logging level of this logger.  level must be an int or a str.
+        """
+        self._level = level
+
+    def debug(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'DEBUG'.
+        """
+        self._log(logging.DEBUG, msg, args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'INFO'.
+        """
+        self._log(logging.INFO, msg, args, **kwargs)
+
+    def _log(self, level, msg, args, **kwargs):
+        """no op logger"""
