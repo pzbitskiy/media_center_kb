@@ -1,6 +1,7 @@
 """Test common utilities and mocks"""
 
 import logging
+from typing import Callable
 
 from media_center_kb.relays import GPioIf
 
@@ -45,6 +46,7 @@ class YspMock:
         self.input = None
         self.sound_mode = None
         self.dsp = None
+        self.cb = None
 
     def power_on(self):
         self.power_state = "on"
@@ -70,6 +72,9 @@ class YspMock:
 
     def set_dsp_off(self):
         self.dsp = "off"
+
+    def set_state_update_cb(self, cb: Callable):
+        self.cb = cb
 
     @property
     def is_power_on(self):

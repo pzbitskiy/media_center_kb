@@ -4,7 +4,7 @@ import unittest
 from typing import Any, Iterable
 
 from media_center_kb.relays import RelayModule, RelayIf
-from media_center_kb.control import kb_handlers
+from media_center_kb.control import Controller
 
 from .mocks import GPMock, LoggerMock, ShellMock, YspMock
 
@@ -72,13 +72,14 @@ class TestControl(unittest.TestCase):
             else:
                 self.assertFalse(rel.is_on)
 
-    def test(self):
+    def test(self):  # pylint: disable=too-many-statements
         """test all control handlers"""
         gpio_mock = GPMock()
         relays = WrapRelays(gpio_mock)
         ysp = YspMock()
 
-        handlers = kb_handlers(relays, ysp)
+        controller = Controller(relays, ysp)
+        handlers = controller.kb_handlers()
         handlers.get("UNK", lambda: None)()
 
         # tv
@@ -148,7 +149,8 @@ class TestControl(unittest.TestCase):
         ysp = YspMock()
         shell = ShellMock()
 
-        handlers = kb_handlers(relays, ysp, shell)
+        controller = Controller(relays, ysp, shell)
+        handlers = controller.kb_handlers()
         handlers.get("KEY_ESC")()
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)

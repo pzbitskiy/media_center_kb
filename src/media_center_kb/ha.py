@@ -29,10 +29,12 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
     """Smart outlet HA device with MQTT auto discovery"""
 
     def __init__(
-        self, state_provider: Any, handlers: Any, mqtt_settings: Dict[str, Any]
+        self,
+        controller: Any,
+        mqtt_settings: Dict[str, Any],
     ):
-        self._state_provider = state_provider
-        self._handlers = handlers
+        self._handlers = controller.commands_map()
+        self._controller = controller
         self._mqtt_settings = Settings.MQTT(**mqtt_settings)
 
         self._initialize_devices()
@@ -216,17 +218,13 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
     def update_all(self):
         """update all sensors"""
-        vol = self._state_provider.get_volume()
+        vol = self._controller.volume()
         self._bt_volume.set_value(vol)
         self._turntable_volume.set_value(vol)
 
-        self._bt_switch.update_state(bool(self._state_provider.get_switch("tv")))
-        self._turntable_switch.update_state(
-            bool(self._state_provider.get_switch("turntable"))
-        )
-        self._printer_switch.update_state(
-            bool(self._state_provider.get_switch("printer"))
-        )
+        self._bt_switch.update_state(bool(self._controller.switch("tv")))
+        self._turntable_switch.update_state(bool(self._controller.switch("turntable")))
+        self._printer_switch.update_state(bool(self._controller.switch("printer")))
 
 
 async def ha_loop(device: SmartOutletHaDevice):
@@ -247,7 +245,7 @@ async def ha_loop(device: SmartOutletHaDevice):
 async def main():
     """main func used for quick tests"""
     ha_device = SmartOutletHaDevice(
-        None, None, mqtt_settings={"host": "localhost", "port": 1883}
+        None, mqtt_settings={"host": "localhost", "port": 1883}
     )
     extra_loop = ha_loop(ha_device)
     await asyncio.gather(extra_loop)

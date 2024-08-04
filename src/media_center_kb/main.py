@@ -11,10 +11,9 @@ import signal
 
 from ysp4000.ysp import Ysp4000
 
-from media_center_kb.control import commands_map, kb_handlers, POWEROFF_CMD
+from media_center_kb.control import Controller, POWEROFF_CMD
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
-from media_center_kb.provider import Provider
 from media_center_kb.relays import RelayModule, Pins
 from media_center_kb.rpi import GPio
 
@@ -38,7 +37,7 @@ logger = logging.getLogger("mcc")
 class Shell:  # pylint: disable=too-few-public-methods
     """Callable shell cmd"""
 
-    def __call__(self, cmd):
+    def __call__(self, cmd: str):
         logger.info("system: %s", cmd)
         if cmd == POWEROFF_CMD:
             # do not allow other commands at the moment
@@ -103,19 +102,17 @@ async def main():
         relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
         shell = Shell()
-        handlers = kb_handlers(relays, ysp, shell)
+        controller = Controller(relays, ysp, shell)
 
         ysp_coro = ysp.get_async_coro(loop)
 
         extra_loop = noop_loop()
         if mqtt_settings:
-            handlers = commands_map(relays, ysp, shell)
-            ha_device = SmartOutletHaDevice(
-                Provider(relays, ysp), handlers, mqtt_settings
-            )
-            extra_loop = ha_loop(ha_device)
+            extra_loop = ha_loop(SmartOutletHaDevice(controller, mqtt_settings))
 
-        await asyncio.gather(kb_event_loop(handlers), ysp_coro, extra_loop)
+        await asyncio.gather(
+            kb_event_loop(controller.kb_handlers()), ysp_coro, extra_loop
+        )
     except asyncio.CancelledError:
         logger.info("exiting main on cancel")
     finally:
