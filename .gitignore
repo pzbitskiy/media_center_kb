@@ -1,6 +1,8 @@
 .venv
-dist
+.vscode
 build
+dist
+prof
 *.egg-info
 __pycache__
 
