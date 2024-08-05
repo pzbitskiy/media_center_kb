@@ -89,7 +89,7 @@ class SoundDevice(ABC):  # pylint: disable=too-few-public-methods
 
 
 class YspSoundDevice(SoundDevice):
-    """YSP4000 device with a name and volume control"""
+    """YSP4000 device with volume control"""
 
     def __init__(self, ysp: Ysp4000):
         self._ysp = ysp
@@ -258,28 +258,23 @@ class VolumeControl(YspSoundDevice):
         self._ysp.volume_down()
 
 
-def switch_off(relays: RelayModuleIf, ysp: Ysp4000) -> Callable:
-    """switch off everything except the controller"""
+class BoardControl:
+    """Board control"""
 
-    def inner():
-        ysp_graceful_power_off(ysp)
-        relays.reset()
+    def __init__(self, relays: RelayModuleIf, ysp: Ysp4000, shell: Callable):
+        self._relays = relays
+        self._ysp = ysp
+        self._shell = shell
 
-    return inner
+    def reset(self):
+        """Reset all relays"""
+        ysp_graceful_power_off(self._ysp)
+        self._relays.reset()
 
-
-POWEROFF_CMD = "sudo poweroff"
-
-
-def power_off(relays: RelayModuleIf, ysp: Ysp4000, shell: Callable) -> Callable:
-    """power off the entire thing"""
-
-    def inner():
-        ysp_graceful_power_off(ysp)
-        relays.reset()
-        shell(POWEROFF_CMD)
-
-    return inner
+    def shutdown(self):
+        """Shutdown the board"""
+        self.reset()
+        self._shell("sudo poweroff")
 
 
 class Controller:  # pylint: disable=too-many-instance-attributes
@@ -310,6 +305,7 @@ class Controller:  # pylint: disable=too-many-instance-attributes
         }
 
         self._volume_control = VolumeControl(self._ysp)
+        self._board_control = BoardControl(self._relays, self._ysp, self._shell)
 
     def devices(
         self, wanted: Iterable[str]
@@ -338,8 +334,8 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             "printer_on": self._named_devices["printer"].on,
             "printer_off": self._named_devices["printer"].off,
             # board control functions
-            "off": switch_off(self._relays, self._ysp),
-            "shutdown": power_off(self._relays, self._ysp, self._shell),
+            "off": self._board_control.reset,
+            "shutdown": self._board_control.shutdown,
             # YSP volume
             "volume_down": self._volume_control.dec,
             "volume_up": self._volume_control.inc,

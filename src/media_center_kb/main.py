@@ -11,7 +11,7 @@ import signal
 
 from ysp4000.ysp import Ysp4000
 
-from media_center_kb.control import Controller, POWEROFF_CMD
+from media_center_kb.control import Controller
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
 from media_center_kb.relays import RelayModule, Pins
@@ -34,13 +34,18 @@ init_logging()
 logger = logging.getLogger("mcc")
 
 
-class Shell:  # pylint: disable=too-few-public-methods
+class RestrictedShell:  # pylint: disable=too-few-public-methods
     """Callable shell cmd"""
+
+    _allowed_cmds = frozenset(
+        [
+            "sudo poweroff",
+        ]
+    )
 
     def __call__(self, cmd: str):
         logger.info("system: %s", cmd)
-        if cmd == POWEROFF_CMD:
-            # do not allow other commands at the moment
+        if cmd in self._allowed_cmds:
             os.system(cmd)
 
 
@@ -101,7 +106,7 @@ async def main():
         gpio = GPio(Pins)
         relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
-        shell = Shell()
+        shell = RestrictedShell()
         controller = Controller(relays, ysp, shell)
 
         ysp_coro = ysp.get_async_coro(loop)
