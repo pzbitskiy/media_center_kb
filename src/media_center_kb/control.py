@@ -41,8 +41,9 @@ class YspVolumeTracker:
         self._ysp_volume = 0
 
     def _ysp_state_update_cb(self, **kwargs):
-        if (vol := kwargs.get("volume_pct")) is not None:
-            self._ysp_volume = vol
+        if (vol := kwargs.get("volume")) is not None:
+            # volume returned as a string '0' - '100'
+            self._ysp_volume = int(vol)
 
     @property
     def volume(self) -> int:
@@ -87,7 +88,7 @@ class SoundDevice(ABC):  # pylint: disable=too-few-public-methods
         """Set volume level"""
 
 
-class YspDevice(SoundDevice):
+class YspSoundDevice(SoundDevice):
     """YSP4000 device with a name and volume control"""
 
     def __init__(self, ysp: Ysp4000):
@@ -100,17 +101,17 @@ class YspDevice(SoundDevice):
 
     @volume.setter
     def volume(self, value: int):
-        self._ysp.set_volume(value)
+        self._ysp.set_volume_pct(value)
 
     def __del__(self):
         self._volume_tracker.close()
 
 
-class TV(PoweredDevice, YspDevice):
+class TV(PoweredDevice, YspSoundDevice):
     """TV Device"""
 
     def __init__(self, relay: RelayIf, ysp: Ysp4000):
-        YspDevice.__init__(self, ysp)
+        YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
         self._ysp = ysp
@@ -145,11 +146,11 @@ class TV(PoweredDevice, YspDevice):
         return self._powered
 
 
-class BluetoothStreamer(PoweredDevice, YspDevice):
+class BluetoothStreamer(PoweredDevice, YspSoundDevice):
     """Bluetooth Streaming Device"""
 
     def __init__(self, relay: RelayIf, ysp: Ysp4000):
-        YspDevice.__init__(self, ysp)
+        YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
         self._ysp = ysp
@@ -182,11 +183,11 @@ class BluetoothStreamer(PoweredDevice, YspDevice):
         return self._powered
 
 
-class Turntable(PoweredDevice, YspDevice):
+class Turntable(PoweredDevice, YspSoundDevice):
     """Turntable Device"""
 
     def __init__(self, relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000):
-        YspDevice.__init__(self, ysp)
+        YspSoundDevice.__init__(self, ysp)
 
         self._relay1 = relay1
         self._relay2 = relay2
@@ -242,39 +243,27 @@ class Printer(PoweredDevice):
         return self._powered
 
 
+class VolumeControl(YspSoundDevice):
+    """Volume control"""
+
+    def __init__(self, ysp: Ysp4000):
+        YspSoundDevice.__init__(self, ysp)
+
+    def inc(self):
+        """Increase volume"""
+        self._ysp.volume_up()
+
+    def dec(self):
+        """Decrease volume"""
+        self._ysp.volume_down()
+
+
 def switch_off(relays: RelayModuleIf, ysp: Ysp4000) -> Callable:
     """switch off everything except the controller"""
 
     def inner():
         ysp_graceful_power_off(ysp)
         relays.reset()
-
-    return inner
-
-
-def volume_down(ysp: Ysp4000) -> Callable:
-    """YSP volume control"""
-
-    def inner():
-        ysp.volume_down()
-
-    return inner
-
-
-def volume_up(ysp: Ysp4000) -> Callable:
-    """YSP volume control"""
-
-    def inner():
-        ysp.volume_up()
-
-    return inner
-
-
-def volume_set(ysp: Ysp4000) -> Callable:
-    """YSP volume control"""
-
-    def inner(val: int):
-        ysp.set_volume(val)
 
     return inner
 
@@ -320,6 +309,8 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             "printer": Printer(self._relays.relay(RelayMap.PRINTER.value)),
         }
 
+        self._volume_control = VolumeControl(self._ysp)
+
     def devices(
         self, wanted: Iterable[str]
     ) -> Dict[str, Union[PoweredDevice, SoundDevice]]:
@@ -350,9 +341,9 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             "off": switch_off(self._relays, self._ysp),
             "shutdown": power_off(self._relays, self._ysp, self._shell),
             # YSP volume
-            "volume_down": volume_down(self._ysp),
-            "volume_up": volume_up(self._ysp),
-            "volume_set": volume_set(self._ysp),
+            "volume_down": self._volume_control.dec,
+            "volume_up": self._volume_control.inc,
+            "volume_set": self._volume_control.volume,
         }
 
     def kb_handlers(self) -> Dict[str, Callable]:
