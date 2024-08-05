@@ -20,17 +20,6 @@ class RelayMap(Enum):
     PRINTER = 4
 
 
-# define here so can be redefined in tests
-sleeper = time.sleep
-
-
-def ysp_graceful_power_off(ysp: Ysp4000):
-    """Power offs YSP with 1s delay"""
-    ysp.power_off()
-    # give YSP change to power off. 1s looks a lot but who cares, it is  being switched off
-    sleeper(1)
-
-
 class YspVolumeTracker:
     """YSP4000 volume pct (numeric value) tracker"""
 
@@ -107,10 +96,36 @@ class YspSoundDevice(SoundDevice):
         self._volume_tracker.close()
 
 
-class TV(PoweredDevice, YspSoundDevice):
+# define here so can be redefined in tests
+sleeper = time.sleep
+
+
+class YspPoweredDevice(PoweredDevice):
+    """Ysp4000 device with power on/off capability"""
+
+    def __init__(self, ysp: Ysp4000):
+        self._ysp = ysp
+        self._state = False
+
+    def on(self):
+        self._ysp.power_on()
+        self._state = True
+
+    def off(self):
+        self._ysp.power_off()
+        self._state = False
+        # give YSP change to power off. 1s looks a lot but who cares, it is being switched off
+        sleeper(1)
+
+    def state(self) -> bool:
+        return self._state
+
+
+class TV(YspPoweredDevice, YspSoundDevice):
     """TV Device"""
 
     def __init__(self, relay: RelayIf, ysp: Ysp4000):
+        YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
@@ -127,7 +142,8 @@ class TV(PoweredDevice, YspSoundDevice):
         IR/radio to switch on projector?
         """
         self._relay.on()
-        self._ysp.power_on()
+        YspPoweredDevice.on(self)
+
         self._ysp.set_input_tv()
         self._ysp.set_5beam()
         self._ysp.set_dsp_cinema()
@@ -138,7 +154,7 @@ class TV(PoweredDevice, YspSoundDevice):
         turn off soundbar
         power off soundbar
         """
-        ysp_graceful_power_off(self._ysp)
+        YspPoweredDevice.off(self)
         self._relay.off()
         self._powered = False
 
@@ -146,10 +162,11 @@ class TV(PoweredDevice, YspSoundDevice):
         return self._powered
 
 
-class BluetoothStreamer(PoweredDevice, YspSoundDevice):
+class BluetoothStreamer(YspPoweredDevice, YspSoundDevice):
     """Bluetooth Streaming Device"""
 
     def __init__(self, relay: RelayIf, ysp: Ysp4000):
+        YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
@@ -164,7 +181,8 @@ class BluetoothStreamer(PoweredDevice, YspSoundDevice):
         select stereo mode
         """
         self._relay.on()
-        self._ysp.power_on()
+        YspPoweredDevice.on(self)
+
         self._ysp.set_input_tv()
         self._ysp.set_dsp_off()
         self._ysp.set_stereo()
@@ -175,7 +193,7 @@ class BluetoothStreamer(PoweredDevice, YspSoundDevice):
         turn off soundbar
         power off soundbar
         """
-        ysp_graceful_power_off(self._ysp)
+        YspPoweredDevice.off(self)
         self._relay.off()
         self._powered = False
 
@@ -183,10 +201,11 @@ class BluetoothStreamer(PoweredDevice, YspSoundDevice):
         return self._powered
 
 
-class Turntable(PoweredDevice, YspSoundDevice):
+class Turntable(YspPoweredDevice, YspSoundDevice):
     """Turntable Device"""
 
     def __init__(self, relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000):
+        YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay1 = relay1
@@ -204,7 +223,7 @@ class Turntable(PoweredDevice, YspSoundDevice):
         """
         self._relay1.on()
         self._relay2.on()
-        self._ysp.power_on()
+        YspPoweredDevice.on(self)
         self._ysp.set_input_aux1()
         self._ysp.set_dsp_off()
         self._ysp.set_stereo()
@@ -215,7 +234,7 @@ class Turntable(PoweredDevice, YspSoundDevice):
         turn off soundbar
         power off soundbar
         """
-        ysp_graceful_power_off(self._ysp)
+        YspPoweredDevice.off(self)
         self._relay2.off()
         self._relay1.off()
         self._powered = False
@@ -263,12 +282,12 @@ class BoardControl:
 
     def __init__(self, relays: RelayModuleIf, ysp: Ysp4000, shell: Callable):
         self._relays = relays
-        self._ysp = ysp
+        self._ypd = YspPoweredDevice(ysp)
         self._shell = shell
 
     def reset(self):
         """Reset all relays"""
-        ysp_graceful_power_off(self._ysp)
+        self._ypd.off()
         self._relays.reset()
 
     def shutdown(self):
