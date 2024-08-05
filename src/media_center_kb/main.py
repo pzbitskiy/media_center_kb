@@ -108,7 +108,7 @@ async def main():
 
         extra_loop = noop_loop()
         if mqtt_settings:
-            extra_loop = ha_loop(SmartOutletHaDevice(controller, mqtt_settings))
+            extra_loop = ha_loop(SmartOutletHaDevice(controller.devices, mqtt_settings))
 
         await asyncio.gather(
             kb_event_loop(controller.kb_handlers()), ysp_coro, extra_loop

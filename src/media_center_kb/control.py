@@ -2,9 +2,10 @@
 Control action for each key
 """
 
+from abc import ABC, abstractmethod
 from enum import Enum
 import time
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Iterable, Optional, Union, no_type_check
 
 from ysp4000.ysp import Ysp4000
 from media_center_kb.relays import RelayModuleIf, RelayIf
@@ -19,111 +20,226 @@ class RelayMap(Enum):
     PRINTER = 4
 
 
+# define here so can be redefined in tests
+sleeper = time.sleep
+
+
 def ysp_graceful_power_off(ysp: Ysp4000):
     """Power offs YSP with 1s delay"""
     ysp.power_off()
-    # give YSP change to power off. 1s looks a lot who cares, it is switching off
-    time.sleep(1)
+    # give YSP change to power off. 1s looks a lot but who cares, it is  being switched off
+    sleeper(1)
 
 
-def enable_tv(relay: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    power on soundbar
-    turn on soundbar
-    select TV/STB channel
-    select 5 beam
-    select cinema mode
-    IR/radio to switch on projector?
-    """
+class YspVolumeTracker:
+    """YSP4000 volume pct (numeric value) tracker"""
 
-    def inner():
-        relay.on()
-        ysp.power_on()
-        ysp.set_input_tv()
-        ysp.set_5beam()
-        ysp.set_dsp_cinema()
+    def __init__(self, ysp: Ysp4000):
+        self._ysp = ysp
 
-    return inner
+        self._ysp.register_state_update_cb(self._ysp_state_update_cb)
+        self._ysp_volume = 0
 
+    def _ysp_state_update_cb(self, **kwargs):
+        if (vol := kwargs.get("volume_pct")) is not None:
+            self._ysp_volume = vol
 
-def disable_tv(relay: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    turn off soundbar
-    power off soundbar
+    @property
+    def volume(self) -> int:
+        """Set volume numeric value"""
+        return self._ysp_volume
 
-    """
+    def close(self):
+        """unregister the state callback"""
+        self._ysp.unregister_state_update_cb(self._ysp_state_update_cb)
 
-    def inner():
-        ysp_graceful_power_off(ysp)
-        relay.off()
-
-    return inner
+    def __del__(self):
+        self.close()
 
 
-def enable_music_stream(relay: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    power on soundbar
-    turn on soundbar
-    select TV/STB channel
-    select stereo mode
-    """
+class PoweredDevice(ABC):
+    """Device that can be powered on and off"""
 
-    def inner():
-        relay.on()
-        ysp.power_on()
-        ysp.set_input_tv()
-        ysp.set_dsp_off()
-        ysp.set_stereo()
+    @abstractmethod
+    def on(self):  # pylint: disable=invalid-name
+        """Switch ON"""
 
-    return inner
+    @abstractmethod
+    def off(self):
+        """Switch OFF"""
+
+    @abstractmethod
+    def state(self) -> bool:
+        """Get power state"""
 
 
-def disable_music_stream(relay: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    turn off soundbar
-    power off soundbar
-    """
+class SoundDevice(ABC):  # pylint: disable=too-few-public-methods
+    """Device that have adjustable volume"""
 
-    def inner():
-        ysp_graceful_power_off(ysp)
-        relay.off()
+    @property
+    @abstractmethod
+    def volume(self) -> int:
+        """Get volume level"""
 
-    return inner
-
-
-def enable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    power on soundbar (relay 1)
-    turn on soundbar
-    select AUX1 channel
-    select stereo mode
-    power on turntable (relay 2)
-    """
-
-    def inner():
-        relay1.on()
-        relay2.on()
-        ysp.power_on()
-        ysp.set_input_aux1()
-        ysp.set_dsp_off()
-        ysp.set_stereo()
-
-    return inner
+    @volume.setter
+    @abstractmethod
+    def volume(self, value: int):
+        """Set volume level"""
 
 
-def disable_turntable(relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000) -> Callable:
-    """
-    turn off soundbar
-    power off soundbar
-    power off turntable
-    """
+class YspDevice(SoundDevice):
+    """YSP4000 device with a name and volume control"""
 
-    def inner():
-        ysp_graceful_power_off(ysp)
-        relay2.off()
-        relay1.off()
+    def __init__(self, ysp: Ysp4000):
+        self._ysp = ysp
+        self._volume_tracker = YspVolumeTracker(ysp)
 
-    return inner
+    @property
+    def volume(self) -> int:
+        return self._volume_tracker.volume
+
+    @volume.setter
+    def volume(self, value: int):
+        self._ysp.set_volume(value)
+
+    def __del__(self):
+        self._volume_tracker.close()
+
+
+class TV(PoweredDevice, YspDevice):
+    """TV Device"""
+
+    def __init__(self, relay: RelayIf, ysp: Ysp4000):
+        YspDevice.__init__(self, ysp)
+
+        self._relay = relay
+        self._ysp = ysp
+        self._powered = False
+
+    def on(self):
+        """
+        power on soundbar
+        turn on soundbar
+        select TV/STB channel
+        select 5 beam
+        select cinema mode
+        IR/radio to switch on projector?
+        """
+        self._relay.on()
+        self._ysp.power_on()
+        self._ysp.set_input_tv()
+        self._ysp.set_5beam()
+        self._ysp.set_dsp_cinema()
+        self._powered = True
+
+    def off(self):
+        """
+        turn off soundbar
+        power off soundbar
+        """
+        ysp_graceful_power_off(self._ysp)
+        self._relay.off()
+        self._powered = False
+
+    def state(self):
+        return self._powered
+
+
+class BluetoothStreamer(PoweredDevice, YspDevice):
+    """Bluetooth Streaming Device"""
+
+    def __init__(self, relay: RelayIf, ysp: Ysp4000):
+        YspDevice.__init__(self, ysp)
+
+        self._relay = relay
+        self._ysp = ysp
+        self._powered = False
+
+    def on(self):
+        """
+        power on soundbar
+        turn on soundbar
+        select TV/STB channel
+        select stereo mode
+        """
+        self._relay.on()
+        self._ysp.power_on()
+        self._ysp.set_input_tv()
+        self._ysp.set_dsp_off()
+        self._ysp.set_stereo()
+        self._powered = True
+
+    def off(self):
+        """
+        turn off soundbar
+        power off soundbar
+        """
+        ysp_graceful_power_off(self._ysp)
+        self._relay.off()
+        self._powered = False
+
+    def state(self):
+        return self._powered
+
+
+class Turntable(PoweredDevice, YspDevice):
+    """Turntable Device"""
+
+    def __init__(self, relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000):
+        YspDevice.__init__(self, ysp)
+
+        self._relay1 = relay1
+        self._relay2 = relay2
+        self._ysp = ysp
+        self._powered = False
+
+    def on(self):
+        """
+        power on soundbar (relay 1)
+        turn on soundbar
+        select AUX1 channel
+        select stereo mode
+        power on turntable (relay 2)
+        """
+        self._relay1.on()
+        self._relay2.on()
+        self._ysp.power_on()
+        self._ysp.set_input_aux1()
+        self._ysp.set_dsp_off()
+        self._ysp.set_stereo()
+        self._powered = True
+
+    def off(self):
+        """
+        turn off soundbar
+        power off soundbar
+        """
+        ysp_graceful_power_off(self._ysp)
+        self._relay2.off()
+        self._relay1.off()
+        self._powered = False
+
+    def state(self):
+        return self._powered
+
+
+class Printer(PoweredDevice):
+    """Printer Device"""
+
+    def __init__(self, relay: RelayIf):
+        self._relay = relay
+        self._powered = False
+
+    def on(self):
+        self._relay.on()
+        self._powered = True
+
+    def off(self):
+        self._relay.off()
+        self._powered = False
+
+    def state(self):
+        return self._powered
 
 
 def switch_off(relays: RelayModuleIf, ysp: Ysp4000) -> Callable:
@@ -177,7 +293,7 @@ def power_off(relays: RelayModuleIf, ysp: Ysp4000, shell: Callable) -> Callable:
     return inner
 
 
-class Controller:
+class Controller:  # pylint: disable=too-many-instance-attributes
     """Controller class"""
 
     def __init__(
@@ -193,56 +309,50 @@ class Controller:
         self._ysp = ysp
         self._shell: Callable = noop if not shell else shell
 
-        self._ysp.set_state_update_cb(self._ysp_state_update_cb)
-        self._ysp_volume = 0
+        self._named_devices: Dict[str, Union[PoweredDevice, SoundDevice]] = {
+            "tv": TV(self._relays.relay(RelayMap.YSP.value), self._ysp),
+            "bt": BluetoothStreamer(self._relays.relay(RelayMap.YSP.value), self._ysp),
+            "turntable": Turntable(
+                self._relays.relay(RelayMap.YSP.value),
+                self._relays.relay(RelayMap.TURNTABLE.value),
+                self._ysp,
+            ),
+            "printer": Printer(self._relays.relay(RelayMap.PRINTER.value)),
+        }
 
-    def _ysp_state_update_cb(self, **kwargs):
-        """Tracks state changes from YSP"""
-        if (vol := kwargs.get("volume_pct")) is not None:
-            self._ysp_volume = vol
+    def devices(
+        self, wanted: Iterable[str]
+    ) -> Dict[str, Union[PoweredDevice, SoundDevice]]:
+        """Return requested devices.
+        Raises ValueError if some device not found
+        """
+        result = {}
+        for name in wanted:
+            device = self._named_devices.get(name)
+            if device is None:
+                raise ValueError(f"unknown device: {name}")
+            result[name] = device
+        return result
 
-    def switch(self, name: str) -> bool:
-        """Returns switch state by name"""
-        try:
-            relay_num = RelayMap[name.upper()].value
-        except KeyError:
-            return False
-        relay = self._relays.relay(relay_num)
-        return relay.enabled()
-
-    def volume(self) -> float:
-        """Returns volume level"""
-        return self._ysp_volume
-
+    @no_type_check
     def commands_map(self) -> Dict[str, Callable]:
         """Returns dict of handlers by keycode"""
         return {
-            "tv_on": enable_tv(self._relays.relay(RelayMap.YSP.value), self._ysp),
-            "tv_off": disable_tv(self._relays.relay(RelayMap.YSP.value), self._ysp),
-            "turntable_on": enable_turntable(
-                self._relays.relay(RelayMap.YSP.value),
-                self._relays.relay(RelayMap.TURNTABLE.value),
-                self._ysp,
-            ),
-            "turntable_off": disable_turntable(
-                self._relays.relay(RelayMap.YSP.value),
-                self._relays.relay(RelayMap.TURNTABLE.value),
-                self._ysp,
-            ),
-            "streaming_on": enable_music_stream(
-                self._relays.relay(RelayMap.YSP.value), self._ysp
-            ),
-            "streaming_off": disable_music_stream(
-                self._relays.relay(RelayMap.YSP.value), self._ysp
-            ),
-            "printer_on": self._relays.relay(RelayMap.PRINTER.value).on,
-            "printer_off": self._relays.relay(RelayMap.PRINTER.value).off,
+            "tv_on": self._named_devices["tv"].on,
+            "tv_off": self._named_devices["tv"].off,
+            "turntable_on": self._named_devices["turntable"].on,
+            "turntable_off": self._named_devices["turntable"].off,
+            "streaming_on": self._named_devices["bt"].on,
+            "streaming_off": self._named_devices["bt"].off,
+            "printer_on": self._named_devices["printer"].on,
+            "printer_off": self._named_devices["printer"].off,
+            # board control functions
             "off": switch_off(self._relays, self._ysp),
+            "shutdown": power_off(self._relays, self._ysp, self._shell),
             # YSP volume
             "volume_down": volume_down(self._ysp),
             "volume_up": volume_up(self._ysp),
             "volume_set": volume_set(self._ysp),
-            "shutdown": power_off(self._relays, self._ysp, self._shell),
         }
 
     def kb_handlers(self) -> Dict[str, Callable]:

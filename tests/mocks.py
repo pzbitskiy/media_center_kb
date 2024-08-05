@@ -46,7 +46,14 @@ class YspMock:
         self.input = None
         self.sound_mode = None
         self.dsp = None
-        self.cb = None
+        self.cbs = set()
+
+    def reset(self):
+        self.power_state = None
+        self.input = None
+        self.sound_mode = None
+        self.dsp = None
+        self.cbs = set()
 
     def power_on(self):
         self.power_state = "on"
@@ -73,8 +80,12 @@ class YspMock:
     def set_dsp_off(self):
         self.dsp = "off"
 
-    def set_state_update_cb(self, cb: Callable):
-        self.cb = cb
+    def register_state_update_cb(self, cb: Callable):
+        self.cbs.add(cb)
+
+    def unregister_state_update_cb(self, cb: Callable):
+        if cb in self.cbs:
+            self.cbs.remove(cb)
 
     @property
     def is_power_on(self):

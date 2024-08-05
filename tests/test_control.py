@@ -4,7 +4,7 @@ import unittest
 from typing import Any, Iterable
 
 from media_center_kb.relays import RelayModule, RelayIf
-from media_center_kb.control import Controller
+import media_center_kb.control
 
 from .mocks import GPMock, LoggerMock, ShellMock, YspMock
 
@@ -78,57 +78,78 @@ class TestControl(unittest.TestCase):
         relays = WrapRelays(gpio_mock)
         ysp = YspMock()
 
-        controller = Controller(relays, ysp)
+        media_center_kb.control.sleeper = lambda x: None
+
+        controller = media_center_kb.control.Controller(relays, ysp)
+        commands = controller.commands_map()
         handlers = controller.kb_handlers()
         handlers.get("UNK", lambda: None)()
 
         # tv
-        handlers.get("KEY_KP7")()
-        self.assertOn(relays, [1])
-        self.assertTrue(ysp.is_power_on)
-        self.assertTrue(ysp.is_input_tv)
-        self.assertTrue(ysp.is_5beam)
+        for action in [handlers.get("KEY_KP7"), commands["tv_on"]]:
+            action()
+            self.assertOn(relays, [1])
+            self.assertTrue(ysp.is_power_on)
+            self.assertTrue(ysp.is_input_tv)
+            self.assertTrue(ysp.is_5beam)
+            ysp.reset()
 
-        handlers.get("KEY_KP4")()
-        self.assertOff(relays)
-        self.assertTrue(ysp.is_power_off)
-        self.assertFalse(ysp.is_input_tv)
-        self.assertFalse(ysp.is_input_aux1)
+        for action in [handlers.get("KEY_KP4"), commands["tv_off"]]:
+            action()
+            self.assertOff(relays)
+            self.assertTrue(ysp.is_power_off)
+            self.assertFalse(ysp.is_input_tv)
+            self.assertFalse(ysp.is_input_aux1)
+            ysp.reset()
 
         # music stream
-        handlers.get("KEY_KP9")()
-        self.assertOn(relays, [1])
-        self.assertTrue(ysp.is_power_on)
-        self.assertTrue(ysp.is_input_tv)
-        self.assertTrue(ysp.is_stereo)
+        for action in [handlers.get("KEY_KP9"), commands["streaming_on"]]:
+            action()
+            self.assertOn(relays, [1])
+            self.assertTrue(ysp.is_power_on)
+            self.assertTrue(ysp.is_input_tv)
+            self.assertTrue(ysp.is_stereo)
+            ysp.reset()
 
-        handlers.get("KEY_KP6")()
-        self.assertOff(relays)
-        self.assertTrue(ysp.is_power_off)
-        self.assertFalse(ysp.is_input_tv)
-        self.assertFalse(ysp.is_input_aux1)
+        for action in [handlers.get("KEY_KP6"), commands["streaming_off"]]:
+            action()
+            self.assertOff(relays)
+            self.assertTrue(ysp.is_power_off)
+            self.assertFalse(ysp.is_input_tv)
+            self.assertFalse(ysp.is_input_aux1)
+            ysp.reset()
 
         # turntable
-        handlers.get("KEY_KP8")()
-        self.assertOn(relays, [1, 3])
-        self.assertTrue(ysp.is_power_on)
-        self.assertTrue(ysp.is_input_aux1)
-        self.assertTrue(ysp.is_stereo)
+        for action in [handlers.get("KEY_KP8"), commands["turntable_on"]]:
+            action()
+            self.assertOn(relays, [1, 3])
+            self.assertTrue(ysp.is_power_on)
+            self.assertTrue(ysp.is_input_aux1)
+            self.assertTrue(ysp.is_stereo)
+            ysp.reset()
 
-        handlers.get("KEY_KP5")()
-        self.assertOff(relays)
-        self.assertTrue(ysp.is_power_off)
-        self.assertFalse(ysp.is_input_tv)
-        self.assertFalse(ysp.is_input_aux1)
+        for action in [handlers.get("KEY_KP5"), commands["turntable_off"]]:
+            action()
+            self.assertOff(relays)
+            self.assertTrue(ysp.is_power_off)
+            self.assertFalse(ysp.is_input_tv)
+            self.assertFalse(ysp.is_input_aux1)
+            ysp.reset()
 
         # printer
-        handlers.get("KEY_KPMINUS")()
-        self.assertOn(relays, [4])
-        self.assertTrue(ysp.is_power_off)
+        for action in [handlers.get("KEY_KPMINUS"), commands["printer_on"]]:
+            action()
+            self.assertOn(relays, [4])
+            self.assertFalse(ysp.is_power_on)
+            self.assertIsNone(ysp.power_state)
+            ysp.reset()
 
-        handlers.get("KEY_KPPLUS")()
-        self.assertOff(relays)
-        self.assertTrue(ysp.is_power_off)
+        for action in [handlers.get("KEY_KPPLUS"), commands["printer_off"]]:
+            action()
+            self.assertOff(relays)
+            self.assertFalse(ysp.is_power_on)
+            self.assertIsNone(ysp.power_state)
+            ysp.reset()
 
         # switch on all, shutdown
         handlers.get("KEY_KP7")()
@@ -141,6 +162,22 @@ class TestControl(unittest.TestCase):
         self.assertOff(relays)
         self.assertTrue(ysp.is_power_off)
 
+        ysp.reset()
+        relays.reset()
+
+        commands.get("tv_on")()
+        commands.get("turntable_on")()
+        commands.get("printer_on")()
+        self.assertOn(relays, [1, 3, 4])
+        self.assertTrue(ysp.is_power_on)
+
+        commands.get("off")()
+        self.assertOff(relays)
+        self.assertTrue(ysp.is_power_off)
+
+        ysp.reset()
+        relays.reset()
+
     def test_poweroff(self):
         """test poweroff"""
 
@@ -149,7 +186,9 @@ class TestControl(unittest.TestCase):
         ysp = YspMock()
         shell = ShellMock()
 
-        controller = Controller(relays, ysp, shell)
+        media_center_kb.control.sleeper = lambda x: None
+
+        controller = media_center_kb.control.Controller(relays, ysp, shell)
         handlers = controller.kb_handlers()
         handlers.get("KEY_ESC")()
         self.assertOff(relays)
