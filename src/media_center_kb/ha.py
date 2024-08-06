@@ -45,20 +45,24 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         # add all devices
         rpi_device_id = get_mac_address()
         self._rpi_device_info = DeviceInfo(
-            name="Media Center Controller",
-            model="RPi Smart Outlet v2",
-            manufacturer="DIY(tm)",
+            name="Media Controller",
+            model="Very Smart Outlet v2",
+            manufacturer="Straight hands, Ltd",
             identifiers=rpi_device_id,
         )
         tv_device_id = rpi_device_id + "-tv"
         self._tv_device_info = DeviceInfo(
             name="TV",
+            model="-",
+            manufacturer="-",
             identifiers=tv_device_id,
             via_device=rpi_device_id,
         )
         turntable_device_id = rpi_device_id + "-turntable"
         self._turntable_device_info = DeviceInfo(
             name="Turntable",
+            model="-",
+            manufacturer="-",
             identifiers=turntable_device_id,
             via_device=rpi_device_id,
         )
@@ -72,17 +76,17 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         )
 
         # add switches
-        # rpi_switch_info = SwitchInfo(
-        #     name="Media Center Controller Switch",
-        #     device_class="outlet",
-        #     unique_id=rpi_device_id + "-switch",
-        #     device=self._rpi_device_info,
-        # )
-        # rpi_switch_settings = Settings(mqtt=self._mqtt_settings, entity=rpi_switch_info)
-        # self._rpi_switch = Switch(rpi_switch_settings, self.rpi_switch_mqtt)
+        rpi_switch_info = SwitchInfo(
+            name="Power",
+            device_class="outlet",
+            unique_id=rpi_device_id + "-switch",
+            device=self._rpi_device_info,
+        )
+        rpi_switch_settings = Settings(mqtt=self._mqtt_settings, entity=rpi_switch_info)
+        self._rpi_switch = Switch(rpi_switch_settings, self.rpi_switch_mqtt)
 
         tv_switch_info = SwitchInfo(
-            name="TV",
+            name="Power",
             device_class="switch",
             unique_id=tv_device_id + "-switch",
             device=self._tv_device_info,
@@ -91,7 +95,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._tv_switch = Switch(tv_switch_settings, self.tv_switch_mqtt)
 
         turntable_switch_info = SwitchInfo(
-            name="Turntable",
+            name="Power",
             device_class="switch",
             unique_id=turntable_device_id + "-switch",
             device=self._turntable_device_info,
@@ -104,7 +108,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         )
 
         printer_switch_info = SwitchInfo(
-            name="Printer",
+            name="Power",
             device_class="outlet",
             unique_id=printer_device_id + "-switch",
             device=self._printer_device_info,
@@ -116,7 +120,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
         # add volume
         tv_volume_info = NumberInfo(
-            name="Bluetooth Sound Volume",
+            name="Volume",
             min=0,
             max=100,
             mode="slider",
@@ -130,7 +134,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         )
 
         turntable_volume_info = NumberInfo(
-            name="Turntable Volume",
+            name="Volume",
             min=0,
             max=100,
             mode="slider",
@@ -147,7 +151,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
     def announce(self):
         """Publish devices over MQTT"""
-        # self._rpi_switch.on()
+        self._rpi_switch.on()
 
         self._printer_switch.off()
         self._tv_switch.off()
@@ -156,19 +160,20 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._tv_volume.set_value(0)
         self._turntable_volume.set_value(0)
 
-    # def rpi_switch_mqtt(
-    #     self, client: Client, user_data, message: MQTTMessage
-    # ):  # pylint: disable=unused-argument
-    #     """MQTT callback for rpi switch"""
-    #     payload = message.payload.decode()
-    #     logging.debug("rpi_switch_mqtt: %s", payload)
-    #     if payload == "OFF":
-    #         # Let HA know that the switch was successfully deactivated
-    #         self._rpi_switch.off()
-    #         self._handlers["shutdown"]()
-    #     elif payload == "ON":
-    #         # cannot power on itself
-    #         pass
+    def rpi_switch_mqtt(
+        self, client: Client, user_data, message: MQTTMessage
+    ):  # pylint: disable=unused-argument
+        """MQTT callback for rpi switch"""
+        payload = message.payload.decode()
+        logging.debug("rpi_switch_mqtt: %s", payload)
+        if payload == "OFF":
+            # Let HA know that the switch was successfully deactivated
+            self._rpi_switch.off()
+            # TBD
+            # self._handlers["shutdown"]()
+        elif payload == "ON":
+            # cannot power on itself
+            pass
 
     def printer_switch_mqtt(
         self, client: Client, user_data, message: MQTTMessage
