@@ -3,7 +3,7 @@
 import logging
 from typing import Callable
 
-from media_center_kb.relays import GPioIf
+from media_center_kb.relays import GPioIf, Logger
 
 # pylint: disable=missing-function-docstring,invalid-name
 
@@ -122,7 +122,7 @@ class ShellMock:  # pylint: disable=too-few-public-methods
         self.last_cmd = cmd
 
 
-class LoggerMock:
+class LoggerMock(Logger):
     """Mock for logging"""
 
     def __init__(self):

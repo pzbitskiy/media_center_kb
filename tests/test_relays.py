@@ -1,65 +1,53 @@
 """Relays tests"""
 
-import unittest
-
 from media_center_kb.relays import RelayModule, Pins
 
-from .mocks import GPMock, LoggerMock
+from .mocks import GPMock
 
 
-class TestRelays(unittest.TestCase):
-    """Relays class tests"""
+def test_on_off(gpio: GPMock, rel_module: RelayModule):
+    """Test relays switch on/off"""
+    for pin in Pins:
+        # pylint: disable=protected-access
+        rel_module._relay_on(pin)
+        assert gpio.high_count[pin] == 1
 
-    def test_on_off(self):
-        """Test relays switch on/off"""
-        gpio_mock = GPMock()
-        relays = RelayModule(gpio_mock, LoggerMock())
+        # not changed second time
+        rel_module._relay_on(pin)
+        assert gpio.high_count[pin] == 1
 
+        rel_module._relay_off(pin)
+        assert gpio.high_count[pin] == 1
+        assert gpio.low_count[pin] == 1
+
+        # not changed second time
+        rel_module._relay_off(pin)
+        assert gpio.high_count[pin] == 1
+        assert gpio.low_count[pin] == 1
+
+
+def test_get_relay(gpio: GPMock, rel_module: RelayModule):
+    """Test individual relays switch"""
+    pins = iter(Pins)
+    for i in range(1, 5):
+        pin = next(pins)
+        relay = rel_module.relay(i)
+        relay.on()
+        relay.on()
+
+        relay.off()
+        relay.off()
+        assert gpio.high_count[pin] == 1
+        assert gpio.low_count[pin] == 1
+
+
+def test_reset(gpio: GPMock, rel_module: RelayModule):
+    """Test all relays reset"""
+    for pin in Pins:
+        # pylint: disable=protected-access
+        rel_module._relay_on(pin)
+
+    for _ in range(2):
+        rel_module.reset()
         for pin in Pins:
-            # pylint: disable=protected-access
-            relays._relay_on(pin)
-            self.assertEqual(1, gpio_mock.high_count[pin])
-
-            # not changed second time
-            relays._relay_on(pin)
-            self.assertEqual(1, gpio_mock.high_count[pin])
-
-            relays._relay_off(pin)
-            self.assertEqual(1, gpio_mock.high_count[pin])
-            self.assertEqual(1, gpio_mock.low_count[pin])
-
-            # not changed second time
-            relays._relay_off(pin)
-            self.assertEqual(1, gpio_mock.high_count[pin])
-            self.assertEqual(1, gpio_mock.low_count[pin])
-
-    def test_get_relay(self):
-        """Test individual relays switch"""
-        gpio_mock = GPMock()
-        relays = RelayModule(gpio_mock, LoggerMock())
-
-        pins = iter(Pins)
-        for i in range(1, 5):
-            pin = next(pins)
-            relay = relays.relay(i)
-            relay.on()
-            relay.on()
-
-            relay.off()
-            relay.off()
-            self.assertEqual(1, gpio_mock.high_count[pin])
-            self.assertEqual(1, gpio_mock.low_count[pin])
-
-    def test_reset(self):
-        """Test all relays reset"""
-        gpio_mock = GPMock()
-        relays = RelayModule(gpio_mock, LoggerMock())
-
-        for pin in Pins:
-            # pylint: disable=protected-access
-            relays._relay_on(pin)
-
-        for _ in range(2):
-            relays.reset()
-            for pin in Pins:
-                self.assertEqual(1, gpio_mock.low_count[pin])
+            assert gpio.low_count[pin] == 1

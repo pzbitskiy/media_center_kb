@@ -6,7 +6,6 @@ Relays related functionality:
 
 from abc import ABC, abstractmethod
 from enum import Enum
-import logging
 from types import SimpleNamespace
 
 
@@ -88,10 +87,24 @@ def _wrap(method, *args):
     return inner
 
 
+class Logger(ABC):
+    """Logger interface to make mypy happier"""
+
+    def debug(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'DEBUG'.
+        """
+
+    def info(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'INFO'.
+        """
+
+
 class RelayModule(RelayModuleIf):
     """Relay module class"""
 
-    def __init__(self, gpio: GPioIf, logger: logging.Logger):
+    def __init__(self, gpio: GPioIf, logger: Logger):
         self._gpio: GPioIf = gpio
         self._logger = logger
         self.reset()
