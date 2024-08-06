@@ -4,7 +4,7 @@ from typing import Iterable
 
 import RPi.GPIO as GPIO  # pylint: disable=consider-using-from-import
 
-from .relays import GPioIf
+from media_center_kb.gpio import GPioIf
 
 
 # pylint: disable=no-member

@@ -12,10 +12,17 @@ import signal
 from ysp4000.ysp import Ysp4000
 
 from media_center_kb.control import Controller
+from media_center_kb.gpio import GPioNoOp
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
 from media_center_kb.relays import RelayModule, Pins
-from media_center_kb.rpi import GPio
+
+try:
+    from media_center_kb.rpi import GPio
+
+    RAISED = None
+except RuntimeError as ex:
+    RAISED = ex
 
 
 def init_logging(level=None, **kwargs):
@@ -56,11 +63,6 @@ def shutdown(loop):
         task.cancel()
 
 
-async def noop_loop():
-    """Noop implementation when no HA stuff available or needed"""
-    return
-
-
 async def main():
     """init dependencies and run kb read loop"""
     parser = argparse.ArgumentParser(description="App manager")
@@ -85,6 +87,30 @@ async def main():
         type=argparse.FileType("rt", encoding="utf8"),
         help="Verbose output",
     )
+    parser.add_argument(
+        "--no-gpio",
+        dest="no_gpio",
+        action="store_true",
+        help="No GPIO device. Useful when tunning without physical relays/control board",
+    )
+    parser.add_argument(
+        "--no-kb",
+        dest="no_keyboard",
+        action="store_true",
+        help="No keyboard. Useful when tunning without physical controls",
+    )
+    parser.add_argument(
+        "--no-serial",
+        dest="no_serial",
+        action="store_true",
+        help="No serial port. Useful when tunning without connected serial port",
+    )
+    parser.add_argument(
+        "--no-ha",
+        dest="no_ha",
+        action="store_true",
+        help="No MQTT. Useful when tunning without MQTT+HA integration",
+    )
     args = parser.parse_args()
 
     verbose = False
@@ -102,22 +128,27 @@ async def main():
     for signame in ("SIGINT", "SIGTERM"):
         loop.add_signal_handler(getattr(signal, signame), lambda: shutdown(loop))
 
+    if not args.no_gpio and RAISED:
+        raise RAISED
+
     try:
-        gpio = GPio(Pins)
+        gpio = GPio(Pins) if not args.no_gpio else GPioNoOp(Pins)
         relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
         shell = RestrictedShell()
         controller = Controller(relays, ysp, shell)
 
-        ysp_coro = ysp.get_async_coro(loop)
+        coros = []
+        if not args.no_keyboard:
+            coros.append(kb_event_loop(controller.kb_handlers()))
+        if not args.no_serial:
+            coros.append(ysp.get_async_coro(loop))
+        if mqtt_settings and not args.no_ha:
+            coros.append(
+                ha_loop(SmartOutletHaDevice(controller.devices, mqtt_settings))
+            )
 
-        extra_loop = noop_loop()
-        if mqtt_settings:
-            extra_loop = ha_loop(SmartOutletHaDevice(controller.devices, mqtt_settings))
-
-        await asyncio.gather(
-            kb_event_loop(controller.kb_handlers()), ysp_coro, extra_loop
-        )
+        await asyncio.gather(*coros)
     except asyncio.CancelledError:
         logger.info("exiting main on cancel")
     finally:

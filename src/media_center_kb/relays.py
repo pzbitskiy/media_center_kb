@@ -1,12 +1,13 @@
 """
 Relays related functionality:
- - GPIO abstraction
  - Relays abstraction
 """
 
 from abc import ABC, abstractmethod
 from enum import Enum
 from types import SimpleNamespace
+
+from media_center_kb.gpio import GPioIf
 
 
 class _RelayPins(Enum):
@@ -26,28 +27,6 @@ _PIN_TO_RELAY = {
 _RELAYS_TO_PIN = {v: k for k, v in _PIN_TO_RELAY.items()}
 
 Pins = _PIN_TO_RELAY.keys()
-
-
-class GPioIf(ABC):
-    """Base abstract class for GPIO operations"""
-
-    @property
-    @abstractmethod
-    def HIGH(self) -> int:  # pylint: disable=invalid-name
-        """HIGH level"""
-
-    @property
-    @abstractmethod
-    def LOW(self) -> int:  # pylint: disable=invalid-name
-        """LOW level"""
-
-    @abstractmethod
-    def input(self, pin: int) -> bool:
-        """Read pin and return logical HIGH/LOW level"""
-
-    @abstractmethod
-    def output(self, pin: int, signal: int):
-        """Set pin to HIGH/LOW logical level"""
 
 
 class RelayIf(ABC):
