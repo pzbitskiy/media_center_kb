@@ -50,6 +50,10 @@ class RestrictedShell:  # pylint: disable=too-few-public-methods
         ]
     )
 
+    def __init__(self, allowed_cmds=None):
+        if allowed_cmds is not None:
+            self._allowed_cmds = allowed_cmds
+
     def __call__(self, cmd: str):
         logger.info("system: %s", cmd)
         if cmd in self._allowed_cmds:
@@ -135,7 +139,11 @@ async def main():
         gpio = GPio(Pins) if not args.no_gpio else GPioNoOp(Pins)
         relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
-        shell = RestrictedShell()
+        if args.no_gpio and args.no_keyboard and args.no_serial:
+            # looks like running in dev mode
+            shell = RestrictedShell(allowed_cmds=[])
+        else:
+            shell = RestrictedShell()
         controller = Controller(relays, ysp, shell)
 
         coros = []

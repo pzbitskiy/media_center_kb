@@ -119,7 +119,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         rpi_switch_info = SwitchInfo(
             name="Power",
             device_class="outlet",
-            unique_id=rpi_device_id + "-switch",
+            unique_id=rpi_device_id + "-outlet",
             device=self._rpi_device_info,
         )
         rpi_switch_settings = Settings(mqtt=self._mqtt_settings, entity=rpi_switch_info)
@@ -149,7 +149,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
 
         printer_switch_info = SwitchInfo(
             name="Power",
-            device_class="outlet",
+            device_class="switch",
             unique_id=printer_device_id + "-switch",
             device=self._printer_device_info,
         )
