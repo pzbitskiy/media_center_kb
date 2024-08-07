@@ -144,9 +144,7 @@ async def main():
         if not args.no_serial:
             coros.append(ysp.get_async_coro(loop))
         if mqtt_settings and not args.no_ha:
-            coros.append(
-                ha_loop(SmartOutletHaDevice(controller.devices, mqtt_settings))
-            )
+            coros.append(ha_loop(SmartOutletHaDevice(controller, mqtt_settings)))
 
         await asyncio.gather(*coros)
     except asyncio.CancelledError:

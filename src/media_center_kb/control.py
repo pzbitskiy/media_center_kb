@@ -340,6 +340,10 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             result[name] = device
         return result
 
+    def shutdown(self):
+        """Power off the controller"""
+        self._board_control.shutdown()
+
     @no_type_check
     def commands_map(self) -> Dict[str, Callable]:
         """Returns dict of handlers by keycode"""

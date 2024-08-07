@@ -1,8 +1,9 @@
 """HomeAssistant MQTT stuff"""
 
+from abc import abstractmethod
 import asyncio
 import logging
-from typing import Any, Callable, Dict, Iterable
+from typing import Any, Dict, Iterable, Optional
 import uuid
 
 from ha_mqtt_discoverable import Settings, DeviceInfo
@@ -27,15 +28,54 @@ def get_mac_address() -> str:
     return mac_address
 
 
+class ControllerIf:
+    """Controller interface"""
+
+    @abstractmethod
+    def devices(self, _: Iterable[str]) -> Dict[str, PoweredDevice]:
+        """Get devices by name"""
+
+    @abstractmethod
+    def shutdown(self):
+        """Shutdown the controller"""
+
+
+class CachedNumber(Number):
+    """Number that remember its state"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._value: Optional[float] = None  # type: ignore[annotation-unchecked]
+
+    def set_value(self, value: float):
+        if value != self._value:
+            self._value = value
+            super().set_value(value)
+
+
+class CachedSwitch(Switch):
+    """Switch that remembers its state"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._state: Optional[bool] = None  # type: ignore[annotation-unchecked]
+
+    def update_state(self, state: bool):
+        if self._state != state:
+            self._state = state
+            super().update_state(state=state)
+
+
 class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
     """Smart outlet HA device with MQTT auto discovery"""
 
     def __init__(
         self,
-        device_provider: Callable[[Iterable[str]], Dict[str, PoweredDevice]],
+        controller: ControllerIf,
         mqtt_settings: Dict[str, Any],
     ):
-        self._devices = device_provider(["tv", "turntable", "printer"])
+        self._controller = controller
+        self._devices = controller.devices(["tv", "turntable", "printer"])
         self._mqtt_settings = Settings.MQTT(**mqtt_settings)
 
         self._initialize_ha_devices()
@@ -83,7 +123,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             device=self._rpi_device_info,
         )
         rpi_switch_settings = Settings(mqtt=self._mqtt_settings, entity=rpi_switch_info)
-        self._rpi_switch = Switch(rpi_switch_settings, self.rpi_switch_mqtt)
+        self._rpi_switch = CachedSwitch(rpi_switch_settings, self.rpi_switch_mqtt)
 
         tv_switch_info = SwitchInfo(
             name="Power",
@@ -92,7 +132,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             device=self._tv_device_info,
         )
         tv_switch_settings = Settings(mqtt=self._mqtt_settings, entity=tv_switch_info)
-        self._tv_switch = Switch(tv_switch_settings, self.tv_switch_mqtt)
+        self._tv_switch = CachedSwitch(tv_switch_settings, self.tv_switch_mqtt)
 
         turntable_switch_info = SwitchInfo(
             name="Power",
@@ -103,7 +143,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         turntable_switch_settings = Settings(
             mqtt=self._mqtt_settings, entity=turntable_switch_info
         )
-        self._turntable_switch = Switch(
+        self._turntable_switch = CachedSwitch(
             turntable_switch_settings, self.turnable_switch_mqtt
         )
 
@@ -116,7 +156,9 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         printer_switch_settings = Settings(
             mqtt=self._mqtt_settings, entity=printer_switch_info
         )
-        self._printer_switch = Switch(printer_switch_settings, self.printer_switch_mqtt)
+        self._printer_switch = CachedSwitch(
+            printer_switch_settings, self.printer_switch_mqtt
+        )
 
         # add volume
         tv_volume_info = NumberInfo(
@@ -129,7 +171,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             device=self._tv_device_info,
         )
         tv_volume_settings = Settings(mqtt=self._mqtt_settings, entity=tv_volume_info)
-        self._tv_volume = Number(
+        self._tv_volume = CachedNumber(
             tv_volume_settings, lambda c, u, m: self.tv_volume_mqtt(c, m)
         )
 
@@ -145,7 +187,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         turntable_volume_settings = Settings(
             mqtt=self._mqtt_settings, entity=turntable_volume_info
         )
-        self._turntable_volume = Number(
+        self._turntable_volume = CachedNumber(
             turntable_volume_settings, lambda c, u, m: self.turntable_volume_mqtt(c, m)
         )
 
@@ -169,8 +211,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         if payload == "OFF":
             # Let HA know that the switch was successfully deactivated
             self._rpi_switch.off()
-            # TBD
-            # self._handlers["shutdown"]()
+            self._controller.shutdown()
         elif payload == "ON":
             # cannot power on itself
             pass
