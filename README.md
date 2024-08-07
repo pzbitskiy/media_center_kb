@@ -1,13 +1,11 @@
-# Media center controller with a numpad keyboard
+# Media center controller with a numpad keyboard and Home Assistant integration
 
 ## Project goals
 
-To control some connected electronics (soundbar, turntable, preamp, printer, etc) from a physical mini keyboard:
+To control some connected electronics (soundbar, turntable, preamp, printer, etc) from a physical mini keyboard.
 1. Turn on/off printer
 2. Turn on/off soundbar + turntable
 3. Turn on/off soundbar + select mode for movie watching or music streaming
-
-Extra:
 4. Expose to HomeAssistant as MQTT device(s) to eventually control it via intents.
 
 ## Hardware
