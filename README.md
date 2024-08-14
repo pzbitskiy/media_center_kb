@@ -117,3 +117,16 @@ pip install -e '.[tests]'
 ```sh
 pytest
 ```
+
+#### HA+MQTT manual testing
+
+```sh
+docker run -d \
+  --name homeassistant \
+  --network=host \
+  ghcr.io/home-assistant/home-assistant:stable
+
+docker run -p 1883:1883 -v ./mosquitto.conf:/mosquitto/config/mosquitto.conf eclipse-mosquitto
+
+python src/media_center_kb/main.py --no-kb --no-serial --no-gpio --mqtt mqtt.json
+```
