@@ -76,7 +76,7 @@ WantedBy=multi-user.target
 
 [Service]
 User=pi
-ExecStart=mediackb
+ExecStart=mediackb --mqtt /etc/mcb/mqtt.json
 Type=idle
 RemainAfterExit=no
 Restart=on-failure
@@ -91,6 +91,15 @@ Ensure it is running
 
 ```sh
 sudo systemctl --type=service --state=running
+```
+
+#### Python 3.10 and Raspberry Pi 2B / Raspbian GNU/Linux 11
+
+After installing `python3.10` RPi.GPIO cannot be imported.
+Simple fix is to give 3.10 extension assuming there were no extension API change 3.9->3.10:
+```sh
+sudo cp /usr/lib/python3/dist-packages/RPi/_GPIO.cpython-39-arm-linux-gnueabihf.so \
+    /usr/lib/python3/dist-packages/RPi/_GPIO.cpython-310-arm-linux-gnueabihf.so
 ```
 
 ## Development
