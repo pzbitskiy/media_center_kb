@@ -67,7 +67,7 @@ def shutdown(loop):
         task.cancel()
 
 
-async def main():
+async def run():
     """init dependencies and run kb read loop"""
     parser = argparse.ArgumentParser(description="App manager")
     parser.add_argument(
@@ -161,5 +161,10 @@ async def main():
         ysp.close()
 
 
+def main():
+    """main runs asyncio"""
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
