@@ -212,6 +212,9 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             # Let HA know that the switch was successfully deactivated
             self._rpi_switch.off()
             self._controller.shutdown()
+            self._tv_volume.set_value(0)
+            self._turntable_volume.set_value(0)
+
         elif payload == "ON":
             # cannot power on itself
             pass
@@ -238,6 +241,8 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         if payload == "OFF":
             self._devices["tv"].off()
             self._tv_switch.off()
+            self._tv_volume.set_value(0)
+            self._turntable_volume.set_value(0)
         elif payload == "ON":
             self._devices["tv"].on()
             self._tv_switch.on()
@@ -251,6 +256,8 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         if payload == "OFF":
             self._devices["turntable"].off()
             self._turntable_switch.off()
+            self._tv_volume.set_value(0)
+            self._turntable_volume.set_value(0)
         elif payload == "ON":
             self._devices["turntable"].on()
             self._turntable_switch.on()
