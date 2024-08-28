@@ -1,4 +1,4 @@
 evdev
 RPi.GPIO
-git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.3.0
+git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.3.1
 git+https://github.com/unixorn/ha-mqtt-discoverable@v0.14.0

@@ -15,7 +15,7 @@ classifiers = [
 dependencies = [
   "evdev",
   "RPi.GPIO",
-  "yamaha-ysp-4000@git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.3.0",
+  "yamaha-ysp-4000@git+https://github.com/pzbitskiy/yamaha-ysp-4000@v0.3.1",
   "ha-mqtt-discoverable@git+https://github.com/unixorn/ha-mqtt-discoverable@v0.14.0",
 ]
 [project.optional-dependencies]
