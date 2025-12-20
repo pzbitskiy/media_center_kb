@@ -26,7 +26,7 @@ _PIN_TO_RELAY = {
 
 _RELAYS_TO_PIN = {v: k for k, v in _PIN_TO_RELAY.items()}
 
-Pins = _PIN_TO_RELAY.keys()
+PINS = _PIN_TO_RELAY.keys()
 
 
 class RelayIf(ABC):
