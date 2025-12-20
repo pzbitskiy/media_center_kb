@@ -15,7 +15,7 @@ from media_center_kb.control import Controller
 from media_center_kb.gpio import GPioNoOp
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
-from media_center_kb.relays import RelayModule, Pins
+from media_center_kb.relays import RelayModule, PINS
 
 try:
     from media_center_kb.rpi import GPio
@@ -136,7 +136,7 @@ async def run():
         raise RAISED
 
     try:
-        gpio = GPio(Pins) if not args.no_gpio else GPioNoOp(Pins)
+        gpio = GPio(PINS) if not args.no_gpio else GPioNoOp(PINS)
         relays = RelayModule(gpio, logging.getLogger("rly"))
         ysp = Ysp4000(verbose=verbose)
         if args.no_gpio and args.no_keyboard and args.no_serial:

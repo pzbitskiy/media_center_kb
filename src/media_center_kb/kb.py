@@ -67,10 +67,12 @@ async def kb_event_loop(handlers: Dict[str, Callable]):
                 if KeyEvent(evt).keycode == "KEY_NUMLOCK":
                     continue
 
-                logger.debug(
-                    "scan: %d, key: %s", KeyEvent(evt).scancode, KeyEvent(evt).keycode
-                )
-                handler = handlers.get(KeyEvent(evt).keycode, lambda: None)
+                keycode = KeyEvent(evt).keycode
+                # keycode can be a tuple when multiple codes match the scancode
+                if isinstance(keycode, tuple):
+                    keycode = keycode[0]
+                logger.debug("scan: %d, key: %s", KeyEvent(evt).scancode, keycode)
+                handler = handlers.get(keycode, lambda: None)
                 handler()
     except asyncio.CancelledError:
         logger.info("cancelled kb_event_loop")

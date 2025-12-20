@@ -75,7 +75,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         mqtt_settings: Dict[str, Any],
     ):
         self._controller = controller
-        self._devices = controller.devices(["tv", "turntable", "printer"])
+        self._devices = controller.devices(["tv", "turntable", "printer", "bt"])
         self._mqtt_settings = Settings.MQTT(**mqtt_settings)
 
         self._initialize_ha_devices()
@@ -104,6 +104,14 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             model="-",
             manufacturer="-",
             identifiers=turntable_device_id,
+            via_device=rpi_device_id,
+        )
+        bt_device_id = rpi_device_id + "-bt"
+        self._bt_device_info = DeviceInfo(
+            name="Bluetooth Streamer",
+            model="Avantree + YSP-4000",
+            manufacturer="Avantree + Yamaha",
+            identifiers=bt_device_id,
             via_device=rpi_device_id,
         )
         printer_device_id = rpi_device_id + "-printer"
@@ -146,6 +154,15 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._turntable_switch = CachedSwitch(
             turntable_switch_settings, self.turnable_switch_mqtt
         )
+
+        bt_switch_info = SwitchInfo(
+            name="Power",
+            device_class="switch",
+            unique_id=bt_device_id + "-switch",
+            device=self._bt_device_info,
+        )
+        bt_switch_settings = Settings(mqtt=self._mqtt_settings, entity=bt_switch_info)
+        self._bt_switch = CachedSwitch(bt_switch_settings, self.bt_switch_mqtt)
 
         printer_switch_info = SwitchInfo(
             name="Power",
@@ -191,6 +208,20 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             turntable_volume_settings, lambda c, u, m: self.turntable_volume_mqtt(c, m)
         )
 
+        bt_volume_info = NumberInfo(
+            name="Volume",
+            min=0,
+            max=100,
+            mode="slider",
+            step=1,
+            unique_id=bt_device_id + "-vol",
+            device=self._bt_device_info,
+        )
+        bt_volume_settings = Settings(mqtt=self._mqtt_settings, entity=bt_volume_info)
+        self._bt_volume = CachedNumber(
+            bt_volume_settings, lambda c, u, m: self.bt_volume_mqtt(c, m)
+        )
+
     def announce(self):
         """Publish devices over MQTT"""
         self._rpi_switch.on()
@@ -198,9 +229,11 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._printer_switch.off()
         self._tv_switch.off()
         self._turntable_switch.off()
+        self._bt_switch.off()
 
         self._tv_volume.set_value(0)
         self._turntable_volume.set_value(0)
+        self._bt_volume.set_value(0)
 
     def rpi_switch_mqtt(
         self, client: Client, user_data, message: MQTTMessage
@@ -214,6 +247,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             self._controller.shutdown()
             self._tv_volume.set_value(0)
             self._turntable_volume.set_value(0)
+            self._bt_volume.set_value(0)
 
         elif payload == "ON":
             # cannot power on itself
@@ -262,6 +296,20 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             self._devices["turntable"].on()
             self._turntable_switch.on()
 
+    def bt_switch_mqtt(
+        self, client: Client, user_data, message: MQTTMessage
+    ):  # pylint: disable=unused-argument
+        """MQTT callback for streaming switch"""
+        payload = message.payload.decode()
+        logging.debug("bt_switch_mqtt: %s", payload)
+        if payload == "OFF":
+            self._devices["bt"].off()
+            self._bt_switch.off()
+            self._bt_volume.set_value(0)
+        elif payload == "ON":
+            self._devices["bt"].on()
+            self._bt_switch.on()
+
     def tv_volume_mqtt(
         self, client: Client, message: MQTTMessage
     ):  # pylint: disable=unused-argument
@@ -275,6 +323,13 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         """MQTT callback for volume"""
         vol = int(message.payload.decode())
         self._devices["turntable"].volume = vol  # type: ignore[attr-defined]
+
+    def bt_volume_mqtt(
+        self, client: Client, message: MQTTMessage
+    ):  # pylint: disable=unused-argument
+        """MQTT callback for volume"""
+        vol = int(message.payload.decode())
+        self._devices["bt"].volume = vol  # type: ignore[attr-defined]
 
     def update_all(self):
         """update all sensors"""
