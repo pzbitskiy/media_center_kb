@@ -3,6 +3,7 @@ Control action for each key
 """
 
 from abc import ABC, abstractmethod
+import asyncio
 from enum import Enum
 import time
 from typing import (
@@ -278,6 +279,10 @@ def airplay_db_to_pct(db: float) -> int:
 
 
 # volume received before the session started is applied only if this fresh, seconds
+# AirPlay client models (e.g. "AppleTV11,1") played with the movie profile,
+# all other clients (iPhone, iPad, Mac) get the music profile
+AIRPLAY_MOVIE_MODEL_PREFIXES = ("AppleTV",)
+
 AIRPLAY_PENDING_VOLUME_TTL = 10.0
 
 
@@ -304,19 +309,51 @@ class AirPlayReceiver(YspPoweredDevice):
         self._snapshot: Optional[_Snapshot] = None
         # (pct, clock() when received)
         self._pending_volume: Optional[Tuple[int, float]] = None
+        # the current session client model, e.g. "AppleTV11,1"
+        self._client_model: Optional[str] = None
+        # the current session AirPlay volume pct
+        self._volume_pct: Optional[int] = None
+        ysp.register_state_update_cb(self._ysp_state_update_cb)
 
-    def _apply_preset(self):
-        """select DVD (HDMI) input, 5 beam and cinema mode"""
+    def _ysp_state_update_cb(self, **kwargs):
+        # The soundbar ignores commands sent while it is powering on, and reports its settings
+        # once it is on: set it up again then. Only the settings that differ are sent.
+        if "power" not in kwargs or not self._ysp.on or not self.state():
+            return
+        try:
+            # out of the serial port read handler calling this callback
+            asyncio.get_running_loop().call_soon(self._setup)
+        except RuntimeError:
+            self._setup()
+
+    def _setup(self):
+        """select DVD (HDMI) input, the preset for the client model and AirPlay volume"""
+        if not self.state():
+            return
+        self._apply_preset(movie=self._movie_client())
+        if self._volume_pct is not None:
+            self._ysp.set_volume_pct(self._volume_pct)
+
+    def _apply_preset(self, movie: bool):
+        """select DVD (HDMI) input and the movie or music profile"""
         self._ysp.set_input_dvd()
-        self._ysp.set_5beam()
-        self._ysp.set_dsp_cinema()
+        self._apply_profile(movie)
+
+    def _apply_profile(self, movie: bool):
+        """movie: 5 beam and cinema mode, music: music mode and 5ch stereo"""
+        if movie:
+            self._ysp.set_5beam()
+            self._ysp.set_dsp_cinema()
+        else:
+            self._ysp.set_dsp_music()
+            self._ysp.set_5ch_stereo()
 
     def on(self):
         """
         remember the soundbar state
         power on soundbar
         turn on soundbar
-        select DVD (HDMI) channel and the preset
+        select DVD (HDMI) channel and the preset for the client model
         """
         # Already owning means the previous session's off() hook was lost:
         # keep its snapshot but set the soundbar up again,
@@ -331,11 +368,11 @@ class AirPlayReceiver(YspPoweredDevice):
 
         self._relay.on()
         YspPoweredDevice.on(self)
-        self._apply_preset()
 
         pending, self._pending_volume = self._pending_volume, None
         if pending is not None and clock() - pending[1] <= AIRPLAY_PENDING_VOLUME_TTL:
-            self._ysp.set_volume_pct(pending[0])
+            self._volume_pct = pending[0]
+        self._setup()
 
     def off(self):
         """
@@ -343,6 +380,8 @@ class AirPlayReceiver(YspPoweredDevice):
         otherwise turn off and power off soundbar
         """
         snapshot, self._snapshot = self._snapshot, None
+        self._client_model = None
+        self._volume_pct = None
         if not self.state() or snapshot is None:
             # not started, or the soundbar was switched off or to another source
             return
@@ -360,10 +399,27 @@ class AirPlayReceiver(YspPoweredDevice):
     def state(self) -> bool:
         return self._owner.current is self
 
+    def set_client_model(self, model: str):
+        """Select the profile for the AirPlay client model (e.g. "AppleTV11,1", "iPhone14,5").
+        shairport-sync reports it on the client session setup, usually before on(),
+        and for every client joining an active session: applied right away while AirPlay
+        owns the soundbar, otherwise by the next on().
+        """
+        self._client_model = model
+        if self.state():
+            self._apply_profile(movie=self._movie_client())
+
+    def _movie_client(self) -> bool:
+        """True for clients played with the movie profile, music profile for unknown ones"""
+        return self._client_model is not None and self._client_model.startswith(
+            AIRPLAY_MOVIE_MODEL_PREFIXES
+        )
+
     def set_volume(self, db: float):
         """Set AirPlay volume in dB, applied only while AirPlay owns the soundbar"""
         pct = airplay_db_to_pct(db)
         if self.state():
+            self._volume_pct = pct
             self._ysp.set_volume_pct(pct)
         else:
             self._pending_volume = (pct, clock())
@@ -498,6 +554,8 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             "airplay_on": self._named_devices["airplay"].on,
             "airplay_off": self._named_devices["airplay"].off,
             "airplay_volume": self._named_devices["airplay"].set_volume,
+            # AirPlay client model from the shairport-sync metadata
+            "airplay_client": self._named_devices["airplay"].set_client_model,
             # board control functions
             "off": self._board_control.reset,
             "shutdown": self._board_control.shutdown,

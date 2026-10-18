@@ -93,11 +93,17 @@ class YspMock:  # pylint: disable=too-many-public-methods
     def set_stereo(self):
         self.sound_mode = "stereo"
 
+    def set_5ch_stereo(self):
+        self.sound_mode = "5ch_stereo"
+
     def set_dsp_cinema(self):
         self.dsp = "cinema"
 
     def set_dsp_off(self):
         self.dsp = "off"
+
+    def set_dsp_music(self):
+        self.dsp = "music"
 
     def register_state_update_cb(self, cb: Callable):
         self.cbs.add(cb)
@@ -105,6 +111,15 @@ class YspMock:  # pylint: disable=too-many-public-methods
     def unregister_state_update_cb(self, cb: Callable):
         if cb in self.cbs:
             self.cbs.remove(cb)
+
+    @property
+    def on(self):
+        return self.power_state == "on"
+
+    def report(self, **updates):
+        """call state update callbacks like the YSP report parser"""
+        for cb in list(self.cbs):
+            cb(**updates)
 
     @property
     def is_power_on(self):

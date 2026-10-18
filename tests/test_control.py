@@ -1,5 +1,6 @@
 """Controller tests"""
 
+import asyncio
 from typing import Iterable
 
 import pytest
@@ -185,8 +186,8 @@ def test_airplay_from_off(relays: WrapRelays, ysp: YspMock, nosleep):
     assert some_on(relays, [1])
     assert ysp.is_power_on
     assert ysp.is_input_dvd
-    assert ysp.is_5beam
-    assert ysp.dsp == "cinema"
+    assert ysp.sound_mode == "5ch_stereo"
+    assert ysp.dsp == "music"
 
     commands["airplay_off"]()
     assert not airplay.state()
@@ -348,6 +349,91 @@ def test_airplay_lost_off_hook(relays: WrapRelays, ysp: YspMock, nosleep):
     commands["airplay_off"]()
     assert ysp.is_power_on
     assert ysp.is_input_tv
+
+
+def test_airplay_client_profile(relays: WrapRelays, ysp: YspMock, nosleep):
+    """music profile by default, movie profile for Apple TV"""
+    _ = nosleep
+
+    commands = media_center_kb.control.Controller(relays, ysp).commands_map()
+
+    # model reported on the session setup, before the session hook
+    commands["airplay_client"]("AppleTV11,1")
+    commands["airplay_on"]()
+    assert ysp.is_input_dvd
+    assert ysp.is_5beam
+    assert ysp.dsp == "cinema"
+
+    # another client joins the active session
+    commands["airplay_client"]("iPhone14,5")
+    assert ysp.is_input_dvd
+    assert ysp.sound_mode == "5ch_stereo"
+    assert ysp.dsp == "music"
+    commands["airplay_off"]()
+
+    # model reported after the session hook
+    commands["airplay_on"]()
+    assert ysp.dsp == "music"
+    commands["airplay_client"]("AppleTV11,1")
+    assert ysp.is_5beam
+    assert ysp.dsp == "cinema"
+
+    # the model is forgotten when the session ends, unknown clients get music
+    commands["airplay_off"]()
+    commands["airplay_on"]()
+    assert ysp.dsp == "music"
+
+    # ignored once another source took over
+    commands["turntable_on"]()
+    commands["airplay_client"]("AppleTV11,1")
+    assert ysp.is_input_aux1
+    assert ysp.dsp == "off"
+
+
+def test_airplay_power_on_report(
+    relays: WrapRelays, ysp: YspMock, nosleep, monkeypatch
+):
+    """the setup ignored while the soundbar powers on is sent again on its power on report"""
+    _ = nosleep
+
+    monkeypatch.setattr(media_center_kb.control, "clock", lambda: 100.0)
+    commands = media_center_kb.control.Controller(relays, ysp).commands_map()
+
+    commands["airplay_volume"](-15.0)
+    commands["airplay_client"]("AppleTV11,1")
+    commands["airplay_on"]()
+    # the soundbar powering on ignored the commands, reports the previous settings
+    ysp.input, ysp.sound_mode, ysp.dsp, ysp.volume_pct = "tv", "stereo", "off", None
+    ysp.report(power="On", input="TV/STB")
+    assert ysp.is_input_dvd
+    assert ysp.is_5beam
+    assert ysp.dsp == "cinema"
+    assert ysp.volume_pct == round(media_center_kb.control.AIRPLAY_MAX_VOLUME_PCT / 2)
+
+    # other reports and the soundbar owned by another source are left alone
+    ysp.dsp = "off"
+    ysp.report(volume="20")
+    assert ysp.dsp == "off"
+    commands["turntable_on"]()
+    ysp.report(power="On")
+    assert ysp.is_input_aux1
+
+
+def test_airplay_power_on_report_in_loop(relays: WrapRelays, ysp: YspMock, nosleep):
+    """in the event loop the setup is deferred out of the serial port read handler"""
+    _ = nosleep
+
+    commands = media_center_kb.control.Controller(relays, ysp).commands_map()
+    commands["airplay_on"]()
+    ysp.dsp = "off"
+
+    async def run():
+        ysp.report(power="On")
+        assert ysp.dsp == "off"
+        await asyncio.sleep(0)
+        assert ysp.dsp == "music"
+
+    asyncio.run(run())
 
 
 def test_airplay_volume(relays: WrapRelays, ysp: YspMock, nosleep, monkeypatch):

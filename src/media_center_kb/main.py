@@ -11,6 +11,7 @@ import signal
 
 from ysp4000.ysp import Ysp4000
 
+from media_center_kb.airplay_metadata import airplay_metadata_loop
 from media_center_kb.control import Controller
 from media_center_kb.control_server import control_server_loop
 from media_center_kb.gpio import GPioNoOp
@@ -68,7 +69,7 @@ def shutdown(loop):
         task.cancel()
 
 
-async def run():
+async def run():  # pylint: disable=too-many-branches
     """init dependencies and run kb read loop"""
     parser = argparse.ArgumentParser(description="App manager")
     parser.add_argument(
@@ -122,6 +123,13 @@ async def run():
         metavar="PATH",
         help="Unix socket for local control commands (AirPlay hooks). Disabled if not set",
     )
+    parser.add_argument(
+        "--airplay-metadata",
+        dest="airplay_metadata",
+        metavar="PATH",
+        help="shairport-sync metadata pipe, selects the profile by the AirPlay client model. "
+        "Disabled if not set",
+    )
     args = parser.parse_args()
 
     verbose = False
@@ -163,6 +171,12 @@ async def run():
         if args.control_socket:
             coros.append(
                 control_server_loop(args.control_socket, controller.commands_map())
+            )
+        if args.airplay_metadata:
+            coros.append(
+                airplay_metadata_loop(
+                    args.airplay_metadata, controller.commands_map()["airplay_client"]
+                )
             )
 
         await asyncio.gather(*coros)

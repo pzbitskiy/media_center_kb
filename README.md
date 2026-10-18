@@ -81,7 +81,7 @@ WantedBy=multi-user.target
 User=pi
 RuntimeDirectory=media-kb
 RuntimeDirectoryMode=0750
-ExecStart=mediackb --mqtt /etc/mcb/mqtt.json --control-socket /run/media-kb/control.sock
+ExecStart=mediackb --mqtt /etc/mcb/mqtt.json --control-socket /run/media-kb/control.sock --airplay-metadata /tmp/shairport-sync-metadata
 Type=idle
 RemainAfterExit=no
 Restart=on-failure
@@ -112,7 +112,9 @@ sudo cp /usr/lib/python3/dist-packages/RPi/_GPIO.cpython-39-arm-linux-gnueabihf.
 [shairport-sync](https://github.com/mikebrady/shairport-sync) plays AirPlay 2 audio through the Pi HDMI output
 into the soundbar DVD input. Its session hooks call `mediackb-airplay`, which talks to `mediackb` over
 `/run/media-kb/control.sock`:
-- client connects: power on the soundbar if needed, select DVD input, 5 beam and cinema mode
+- client connects: power on the soundbar if needed, select DVD input, music mode and 5ch stereo.
+  Apple TV gets cinema mode instead: the client model comes from the shairport-sync metadata pipe
+  (`--airplay-metadata`), models starting with `AIRPLAY_MOVIE_MODEL_PREFIXES` get 5 beam and cinema mode.
 - client disconnects (after `active_state_timeout` of silence): turn the previous source (TV, BT or turntable)
   back on with its volume, or power the soundbar off if it was off.
   If the soundbar was switched off or to another source during the session, it is left alone.
@@ -158,8 +160,11 @@ speaker-test -D hdmi:CARD=vc4hdmi,DEV=0 -c2 -t wav    # KMS
 
 #### Build nqptp and shairport-sync
 
-Distro packages are usually built without AirPlay 2, so build both from source,
-either natively on the Pi (slow on a Pi 2) or cross-built on an x86_64 machine.
+Distro packages are usually built without AirPlay 2, so build both from source.
+shairport-sync is pinned to 5.5.2: 5.6 stopped reporting the client model in the metadata,
+so every client would get the music profile. nqptp is pinned to 1.2.8, the last release with
+the shared memory interface version (smi10) shairport-sync 5.5.2 requires.
+Build them either natively on the Pi (slow on a Pi 2) or cross-built on an x86_64 machine.
 Check [BUILD.md](https://github.com/mikebrady/shairport-sync/blob/master/BUILD.md) for the exact package list for your OS.
 
 ##### Native build on the Pi
@@ -169,13 +174,13 @@ sudo apt install --no-install-recommends build-essential git autoconf automake l
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
     libplist-dev libplist-utils libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
 
-git clone https://github.com/mikebrady/nqptp.git && cd nqptp
+git clone --branch 1.2.8 https://github.com/mikebrady/nqptp.git && cd nqptp
 autoreconf -fi && ./configure --with-systemd-startup && make && sudo make install
 cd ..
 
-git clone https://github.com/mikebrady/shairport-sync.git && cd shairport-sync
+git clone --branch 5.5.2 https://github.com/mikebrady/shairport-sync.git && cd shairport-sync
 autoreconf -fi
-./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd-startup --with-airplay-2
+./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd-startup --with-airplay-2 --with-metadata
 make && sudo make install
 
 # must list AirPlay2
@@ -203,11 +208,11 @@ apt-get update
 apt-get install -y --no-install-recommends build-essential git autoconf automake libtool pkg-config ca-certificates systemd \
   libpopt-dev libconfig-dev libasound2-dev libavahi-client-dev libssl-dev libsoxr-dev \
   libplist-dev libplist-utils libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
-git clone https://github.com/mikebrady/nqptp.git
+git clone --branch 1.2.8 https://github.com/mikebrady/nqptp.git
 (cd nqptp && autoreconf -fi && ./configure --with-systemd-startup && make -j$(nproc))
-git clone https://github.com/mikebrady/shairport-sync.git
+git clone --branch 5.5.2 https://github.com/mikebrady/shairport-sync.git
 (cd shairport-sync && autoreconf -fi && \
-  ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd-startup --with-airplay-2 && \
+  ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd-startup --with-airplay-2 --with-metadata && \
   make -j$(nproc))
 rm -rf stage
 (cd nqptp && make install DESTDIR=/work/stage)
@@ -286,8 +291,11 @@ docker run -d \
 
 docker run -p 1883:1883 -v ./mosquitto.conf:/mosquitto/config/mosquitto.conf eclipse-mosquitto
 
-python src/media_center_kb/main.py --no-kb --no-serial --no-gpio --mqtt mqtt.json --control-socket ./ctl.sock
+python src/media_center_kb/main.py --no-kb --no-serial --no-gpio --mqtt mqtt.json --control-socket ./ctl.sock --airplay-metadata ./metadata
 
 # AirPlay hooks
 MEDIACKB_SOCKET=./ctl.sock contrib/shairport-sync/mediackb-airplay on
+# AirPlay client model
+printf '<item><type>73736e63</type><code>636d6f64</code><length>11</length>\n<data encoding="base64">\n%s</data></item>\n' \
+    "$(printf AppleTV11,1 | base64)" > ./metadata
 ```
