@@ -355,8 +355,8 @@ class AirPlayReceiver(YspPoweredDevice):
         turn on soundbar
         select DVD (HDMI) channel and the preset for the client model
         """
-        # Already owning means the previous session's off() hook was lost:
-        # keep its snapshot but set the soundbar up again,
+        # Already owning: another stream of the session, or the previous session's off() hook
+        # was lost. Keep the snapshot but set the soundbar up again,
         # it could have been put to standby or another input meanwhile.
         if not self.state():
             self._snapshot = _Snapshot(

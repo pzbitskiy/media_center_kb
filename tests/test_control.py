@@ -311,6 +311,34 @@ def test_airplay_preempted(relays: WrapRelays, ysp: YspMock, nosleep):
     assert ysp.power_state is None
 
 
+def test_airplay_new_stream_takes_back(relays: WrapRelays, ysp: YspMock, nosleep):
+    """a new stream after the soundbar was taken over takes it back, the session end restores"""
+    _ = nosleep
+
+    commands = media_center_kb.control.Controller(relays, ysp).commands_map()
+    commands["airplay_on"]()
+    commands["turntable_on"]()
+    assert ysp.is_input_aux1
+
+    # next stream of the same session
+    commands["airplay_on"]()
+    assert ysp.is_input_dvd
+
+    # session ends: back to the source selected during the session
+    commands["airplay_off"]()
+    assert some_on(relays, [1, 3])
+    assert ysp.is_input_aux1
+
+    # switched off from the CLI during the session, then a new stream
+    commands["airplay_on"]()
+    commands["airplay_off"]()
+    commands["airplay_on"]()
+    assert ysp.is_input_dvd
+    commands["airplay_off"]()
+    assert some_on(relays, [1, 3])
+    assert ysp.is_input_aux1
+
+
 def test_airplay_idempotent(relays: WrapRelays, ysp: YspMock, nosleep):
     """repeated hooks do not overwrite the saved state"""
     _ = nosleep

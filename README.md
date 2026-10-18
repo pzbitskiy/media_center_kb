@@ -112,7 +112,9 @@ sudo cp /usr/lib/python3/dist-packages/RPi/_GPIO.cpython-39-arm-linux-gnueabihf.
 [shairport-sync](https://github.com/mikebrady/shairport-sync) plays AirPlay 2 audio through the Pi HDMI output
 into the soundbar DVD input. Its session hooks call `mediackb-airplay`, which talks to `mediackb` over
 `/run/media-kb/control.sock`:
-- client connects: power on the soundbar if needed, select DVD input, music mode and 5ch stereo.
+- client starts streaming: power on the soundbar if needed, select DVD input, music mode and 5ch stereo.
+  Every new stream does it, so a stream started after the soundbar was switched off or to another
+  source during the session takes the soundbar back. Resuming a paused stream does not.
   Apple TV gets cinema mode instead: the client model comes from the shairport-sync metadata pipe
   (`--airplay-metadata`), models starting with `AIRPLAY_MOVIE_MODEL_PREFIXES` get 5 beam and cinema mode.
 - client disconnects (after `active_state_timeout` of silence): turn the previous source (TV, BT or turntable)
