@@ -38,7 +38,7 @@ class GPMock(GPioIf):
         self.states[pin] = signal
 
 
-class YspMock:
+class YspMock:  # pylint: disable=too-many-public-methods
     """YSP mock class"""
 
     def __init__(self):
@@ -46,6 +46,8 @@ class YspMock:
         self.input = None
         self.sound_mode = None
         self.dsp = None
+        self.volume_pct = None
+        self.volume_code = None
         self.cbs = set()
 
     def reset(self):
@@ -53,6 +55,8 @@ class YspMock:
         self.input = None
         self.sound_mode = None
         self.dsp = None
+        self.volume_pct = None
+        self.volume_code = None
         self.cbs = set()
 
     def power_on(self):
@@ -67,6 +71,21 @@ class YspMock:
 
     def set_input_aux1(self):
         self.input = "aux1"
+
+    def set_input_dvd(self):
+        self.input = "dvd"
+
+    def set_volume_pct(self, value: int):
+        self.volume_pct = value
+        # what the soundbar would report back
+        self.volume_code = f"pct{value}"
+
+    def set_volume(self, value: str):
+        self.volume_code = value
+
+    @property
+    def state(self):
+        return {"volume": self.volume_code}
 
     def set_5beam(self):
         self.sound_mode = "5beam"
@@ -102,6 +121,10 @@ class YspMock:
     @property
     def is_input_aux1(self):
         return self.input == "aux1"
+
+    @property
+    def is_input_dvd(self):
+        return self.input == "dvd"
 
     @property
     def is_stereo(self):

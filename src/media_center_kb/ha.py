@@ -8,6 +8,8 @@ import uuid
 
 from ha_mqtt_discoverable import Settings, DeviceInfo
 from ha_mqtt_discoverable.sensors import (
+    BinarySensor,
+    BinarySensorInfo,
     Number,
     NumberInfo,
     Switch,
@@ -66,6 +68,19 @@ class CachedSwitch(Switch):
             super().update_state(state=state)
 
 
+class CachedBinarySensor(BinarySensor):
+    """Binary sensor that remembers its state"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._state: Optional[bool] = None  # type: ignore[annotation-unchecked]
+
+    def update_state(self, state: bool):
+        if self._state != state:
+            self._state = state
+            super().update_state(state=state)
+
+
 class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
     """Smart outlet HA device with MQTT auto discovery"""
 
@@ -75,7 +90,9 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         mqtt_settings: Dict[str, Any],
     ):
         self._controller = controller
-        self._devices = controller.devices(["tv", "turntable", "printer", "bt"])
+        self._devices = controller.devices(
+            ["tv", "turntable", "printer", "bt", "airplay"]
+        )
         self._mqtt_settings = Settings.MQTT(**mqtt_settings)
 
         self._initialize_ha_devices()
@@ -112,6 +129,14 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             model="Avantree + YSP-4000",
             manufacturer="Avantree + Yamaha",
             identifiers=bt_device_id,
+            via_device=rpi_device_id,
+        )
+        airplay_device_id = rpi_device_id + "-airplay"
+        self._airplay_device_info = DeviceInfo(
+            name="AirPlay",
+            model="shairport-sync + YSP-4000",
+            manufacturer="-",
+            identifiers=airplay_device_id,
             via_device=rpi_device_id,
         )
         printer_device_id = rpi_device_id + "-printer"
@@ -177,6 +202,18 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
             printer_switch_settings, self.printer_switch_mqtt
         )
 
+        # add read-only sensors
+        airplay_active_info = BinarySensorInfo(
+            name="Active",
+            device_class="running",
+            unique_id=airplay_device_id + "-active",
+            device=self._airplay_device_info,
+        )
+        airplay_active_settings = Settings(
+            mqtt=self._mqtt_settings, entity=airplay_active_info
+        )
+        self._airplay_active = CachedBinarySensor(airplay_active_settings)
+
         # add volume
         tv_volume_info = NumberInfo(
             name="Volume",
@@ -230,6 +267,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._tv_switch.off()
         self._turntable_switch.off()
         self._bt_switch.off()
+        self._airplay_active.update_state(False)
 
         self._tv_volume.set_value(0)
         self._turntable_volume.set_value(0)
@@ -341,6 +379,7 @@ class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes
         self._turntable_switch.update_state(self._devices["turntable"].state())
         self._bt_switch.update_state(self._devices["bt"].state())
         self._printer_switch.update_state(self._devices["printer"].state())
+        self._airplay_active.update_state(self._devices["airplay"].state())
 
 
 async def ha_loop(device: SmartOutletHaDevice):

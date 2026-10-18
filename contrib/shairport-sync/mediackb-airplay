@@ -1,0 +1,43 @@
+#!/usr/bin/python3 -I
+"""
+shairport-sync session hook: forwards AirPlay session events to media-kb.
+
+Usage: mediackb-airplay on|off|volume <dB>
+Socket path: $MEDIACKB_SOCKET or /run/media-kb/control.sock
+"""
+
+import os
+import socket
+import sys
+
+SOCKET = os.environ.get("MEDIACKB_SOCKET", "/run/media-kb/control.sock")
+TIMEOUT = 15
+
+COMMANDS = {"on": "airplay_on", "off": "airplay_off", "volume": "airplay_volume"}
+
+
+def main() -> int:
+    """send the command and wait for the reply"""
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    line = " ".join([COMMANDS[sys.argv[1]]] + sys.argv[2:])
+
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(TIMEOUT)
+            sock.connect(SOCKET)
+            sock.sendall(line.encode() + b"\n")
+            reply = sock.makefile().readline().strip()
+    except OSError as ex:
+        print(f"mediackb-airplay: {SOCKET}: {ex}", file=sys.stderr)
+        return 1
+
+    if reply != "ok":
+        print(f"mediackb-airplay: {line}: {reply}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

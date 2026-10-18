@@ -12,6 +12,7 @@ import signal
 from ysp4000.ysp import Ysp4000
 
 from media_center_kb.control import Controller
+from media_center_kb.control_server import control_server_loop
 from media_center_kb.gpio import GPioNoOp
 from media_center_kb.ha import ha_loop, SmartOutletHaDevice
 from media_center_kb.kb import kb_event_loop
@@ -115,6 +116,12 @@ async def run():
         action="store_true",
         help="No MQTT. Useful when tunning without MQTT+HA integration",
     )
+    parser.add_argument(
+        "--control-socket",
+        dest="control_socket",
+        metavar="PATH",
+        help="Unix socket for local control commands (AirPlay hooks). Disabled if not set",
+    )
     args = parser.parse_args()
 
     verbose = False
@@ -153,6 +160,10 @@ async def run():
             coros.append(ysp.get_async_coro(loop))
         if mqtt_settings and not args.no_ha:
             coros.append(ha_loop(SmartOutletHaDevice(controller, mqtt_settings)))
+        if args.control_socket:
+            coros.append(
+                control_server_loop(args.control_socket, controller.commands_map())
+            )
 
         await asyncio.gather(*coros)
     except asyncio.CancelledError:

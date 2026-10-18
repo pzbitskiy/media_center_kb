@@ -5,7 +5,16 @@ Control action for each key
 from abc import ABC, abstractmethod
 from enum import Enum
 import time
-from typing import Callable, Dict, Iterable, Optional, Union, no_type_check
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    no_type_check,
+)
 
 from ysp4000.ysp import Ysp4000
 from media_center_kb.relays import RelayModuleIf, RelayIf
@@ -98,6 +107,16 @@ class YspSoundDevice(SoundDevice):
 
 # define here so can be redefined in tests
 sleeper = time.sleep
+clock = time.monotonic
+
+
+class SoundbarOwner:  # pylint: disable=too-few-public-methods
+    """The source currently playing via the soundbar, None if the soundbar is off.
+    Shared by all soundbar sources because they share the soundbar relay and input.
+    """
+
+    def __init__(self) -> None:
+        self.current: Optional[PoweredDevice] = None
 
 
 class YspPoweredDevice(PoweredDevice):
@@ -124,13 +143,13 @@ class YspPoweredDevice(PoweredDevice):
 class TV(YspPoweredDevice, YspSoundDevice):
     """TV Device"""
 
-    def __init__(self, relay: RelayIf, ysp: Ysp4000):
+    def __init__(self, relay: RelayIf, ysp: Ysp4000, owner: SoundbarOwner):
         YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
         self._ysp = ysp
-        self._powered = False
+        self._owner = owner
 
     def on(self):
         """
@@ -147,7 +166,7 @@ class TV(YspPoweredDevice, YspSoundDevice):
         self._ysp.set_input_tv()
         self._ysp.set_5beam()
         self._ysp.set_dsp_cinema()
-        self._powered = True
+        self._owner.current = self
 
     def off(self):
         """
@@ -156,22 +175,22 @@ class TV(YspPoweredDevice, YspSoundDevice):
         """
         YspPoweredDevice.off(self)
         self._relay.off()
-        self._powered = False
+        self._owner.current = None
 
     def state(self):
-        return self._powered
+        return self._owner.current is self
 
 
 class BluetoothStreamer(YspPoweredDevice, YspSoundDevice):
     """Bluetooth Streaming Device"""
 
-    def __init__(self, relay: RelayIf, ysp: Ysp4000):
+    def __init__(self, relay: RelayIf, ysp: Ysp4000, owner: SoundbarOwner):
         YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay = relay
         self._ysp = ysp
-        self._powered = False
+        self._owner = owner
 
     def on(self):
         """
@@ -186,7 +205,7 @@ class BluetoothStreamer(YspPoweredDevice, YspSoundDevice):
         self._ysp.set_input_tv()
         self._ysp.set_dsp_off()
         self._ysp.set_stereo()
-        self._powered = True
+        self._owner.current = self
 
     def off(self):
         """
@@ -195,23 +214,25 @@ class BluetoothStreamer(YspPoweredDevice, YspSoundDevice):
         """
         YspPoweredDevice.off(self)
         self._relay.off()
-        self._powered = False
+        self._owner.current = None
 
     def state(self):
-        return self._powered
+        return self._owner.current is self
 
 
 class Turntable(YspPoweredDevice, YspSoundDevice):
     """Turntable Device"""
 
-    def __init__(self, relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000):
+    def __init__(
+        self, relay1: RelayIf, relay2: RelayIf, ysp: Ysp4000, owner: SoundbarOwner
+    ):
         YspPoweredDevice.__init__(self, ysp)
         YspSoundDevice.__init__(self, ysp)
 
         self._relay1 = relay1
         self._relay2 = relay2
         self._ysp = ysp
-        self._powered = False
+        self._owner = owner
 
     def on(self):
         """
@@ -227,7 +248,7 @@ class Turntable(YspPoweredDevice, YspSoundDevice):
         self._ysp.set_input_aux1()
         self._ysp.set_dsp_off()
         self._ysp.set_stereo()
-        self._powered = True
+        self._owner.current = self
 
     def off(self):
         """
@@ -237,10 +258,115 @@ class Turntable(YspPoweredDevice, YspSoundDevice):
         YspPoweredDevice.off(self)
         self._relay2.off()
         self._relay1.off()
-        self._powered = False
+        self._owner.current = None
 
     def state(self):
-        return self._powered
+        return self._owner.current is self
+
+
+AIRPLAY_MIN_DB = -30.0
+# cap so connecting at full AirPlay volume does not blast the room
+AIRPLAY_MAX_VOLUME_PCT = 80
+
+
+def airplay_db_to_pct(db: float) -> int:
+    """Map AirPlay volume (-30..0 dB, -144 is mute) to YSP volume pct"""
+    if db <= AIRPLAY_MIN_DB:
+        return 0
+    db = min(db, 0.0)
+    return round((db - AIRPLAY_MIN_DB) / -AIRPLAY_MIN_DB * AIRPLAY_MAX_VOLUME_PCT)
+
+
+# volume received before the session started is applied only if this fresh, seconds
+AIRPLAY_PENDING_VOLUME_TTL = 10.0
+
+
+class _Snapshot(NamedTuple):
+    """Soundbar state before an AirPlay session"""
+
+    # source to restore, None if the soundbar was off
+    owner: Optional[PoweredDevice]
+    # raw YSP volume code, None if unknown
+    volume: Optional[str]
+
+
+class AirPlayReceiver(YspPoweredDevice):
+    """AirPlay receiver (shairport-sync) playing via the soundbar DVD (HDMI) input.
+    Remembers the soundbar state on session start and restores it on session end.
+    """
+
+    def __init__(self, relay: RelayIf, ysp: Ysp4000, owner: SoundbarOwner):
+        YspPoweredDevice.__init__(self, ysp)
+
+        self._relay = relay
+        self._ysp = ysp
+        self._owner = owner
+        self._snapshot: Optional[_Snapshot] = None
+        # (pct, clock() when received)
+        self._pending_volume: Optional[Tuple[int, float]] = None
+
+    def _apply_preset(self):
+        """select DVD (HDMI) input, 5 beam and cinema mode"""
+        self._ysp.set_input_dvd()
+        self._ysp.set_5beam()
+        self._ysp.set_dsp_cinema()
+
+    def on(self):
+        """
+        remember the soundbar state
+        power on soundbar
+        turn on soundbar
+        select DVD (HDMI) channel and the preset
+        """
+        # Already owning means the previous session's off() hook was lost:
+        # keep its snapshot but set the soundbar up again,
+        # it could have been put to standby or another input meanwhile.
+        if not self.state():
+            self._snapshot = _Snapshot(
+                owner=self._owner.current,
+                volume=self._ysp.state.get("volume"),
+            )
+            # own the soundbar before touching it so a failed start is undone by off()
+            self._owner.current = self
+
+        self._relay.on()
+        YspPoweredDevice.on(self)
+        self._apply_preset()
+
+        pending, self._pending_volume = self._pending_volume, None
+        if pending is not None and clock() - pending[1] <= AIRPLAY_PENDING_VOLUME_TTL:
+            self._ysp.set_volume_pct(pending[0])
+
+    def off(self):
+        """
+        restore the previous source and volume if the soundbar was on,
+        otherwise turn off and power off soundbar
+        """
+        snapshot, self._snapshot = self._snapshot, None
+        if not self.state() or snapshot is None:
+            # not started, or the soundbar was switched off or to another source
+            return
+
+        if snapshot.owner is not None:
+            # re-selects its input, beam and DSP and takes the ownership
+            snapshot.owner.on()
+            if snapshot.volume is not None:
+                self._ysp.set_volume(snapshot.volume)
+        else:
+            YspPoweredDevice.off(self)
+            self._relay.off()
+            self._owner.current = None
+
+    def state(self) -> bool:
+        return self._owner.current is self
+
+    def set_volume(self, db: float):
+        """Set AirPlay volume in dB, applied only while AirPlay owns the soundbar"""
+        pct = airplay_db_to_pct(db)
+        if self.state():
+            self._ysp.set_volume_pct(pct)
+        else:
+            self._pending_volume = (pct, clock())
 
 
 class Printer(PoweredDevice):
@@ -280,15 +406,23 @@ class VolumeControl(YspSoundDevice):
 class BoardControl:
     """Board control"""
 
-    def __init__(self, relays: RelayModuleIf, ysp: Ysp4000, shell: Callable):
+    def __init__(
+        self,
+        relays: RelayModuleIf,
+        ysp: Ysp4000,
+        owner: SoundbarOwner,
+        shell: Callable,
+    ):
         self._relays = relays
         self._ypd = YspPoweredDevice(ysp)
+        self._owner = owner
         self._shell = shell
 
     def reset(self):
         """Reset all relays"""
         self._ypd.off()
         self._relays.reset()
+        self._owner.current = None
 
     def shutdown(self):
         """Shutdown the board"""
@@ -312,19 +446,23 @@ class Controller:  # pylint: disable=too-many-instance-attributes
         self._ysp = ysp
         self._shell: Callable = noop if not shell else shell
 
+        owner = SoundbarOwner()
+        ysp_relay = self._relays.relay(RelayMap.YSP.value)
         self._named_devices: Dict[str, Union[PoweredDevice, SoundDevice]] = {
-            "tv": TV(self._relays.relay(RelayMap.YSP.value), self._ysp),
-            "bt": BluetoothStreamer(self._relays.relay(RelayMap.YSP.value), self._ysp),
+            "tv": TV(ysp_relay, self._ysp, owner),
+            "bt": BluetoothStreamer(ysp_relay, self._ysp, owner),
             "turntable": Turntable(
-                self._relays.relay(RelayMap.YSP.value),
+                ysp_relay,
                 self._relays.relay(RelayMap.TURNTABLE.value),
                 self._ysp,
+                owner,
             ),
             "printer": Printer(self._relays.relay(RelayMap.PRINTER.value)),
+            "airplay": AirPlayReceiver(ysp_relay, self._ysp, owner),
         }
 
         self._volume_control = VolumeControl(self._ysp)
-        self._board_control = BoardControl(self._relays, self._ysp, self._shell)
+        self._board_control = BoardControl(self._relays, self._ysp, owner, self._shell)
 
     def devices(
         self, wanted: Iterable[str]
@@ -356,6 +494,10 @@ class Controller:  # pylint: disable=too-many-instance-attributes
             "streaming_off": self._named_devices["bt"].off,
             "printer_on": self._named_devices["printer"].on,
             "printer_off": self._named_devices["printer"].off,
+            # AirPlay session hooks, no keys
+            "airplay_on": self._named_devices["airplay"].on,
+            "airplay_off": self._named_devices["airplay"].off,
+            "airplay_volume": self._named_devices["airplay"].set_volume,
             # board control functions
             "off": self._board_control.reset,
             "shutdown": self._board_control.shutdown,
