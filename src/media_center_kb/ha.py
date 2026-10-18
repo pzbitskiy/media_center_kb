@@ -55,19 +55,6 @@ class CachedNumber(Number):
             super().set_value(value)
 
 
-class CachedSwitch(Switch):
-    """Switch that remembers its state"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._state: Optional[bool] = None  # type: ignore[annotation-unchecked]
-
-    def update_state(self, state: bool):
-        if self._state != state:
-            self._state = state
-            super().update_state(state=state)
-
-
 class CachedBinarySensor(BinarySensor):
     """Binary sensor that remembers its state"""
 
@@ -79,6 +66,12 @@ class CachedBinarySensor(BinarySensor):
         if self._state != state:
             self._state = state
             super().update_state(state=state)
+
+
+class CachedSwitch(CachedBinarySensor, Switch):
+    """Switch that remembers its state.
+    Switch is a BinarySensor, so the caching comes from CachedBinarySensor.
+    """
 
 
 class SmartOutletHaDevice:  # pylint: disable=too-many-instance-attributes

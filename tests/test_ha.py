@@ -2,7 +2,10 @@
 
 from types import SimpleNamespace
 
-from media_center_kb.ha import SmartOutletHaDevice
+import pytest
+from ha_mqtt_discoverable.sensors import BinarySensor
+
+from media_center_kb.ha import CachedBinarySensor, CachedSwitch, SmartOutletHaDevice
 
 # pylint: disable=protected-access
 
@@ -61,3 +64,25 @@ def test_update_all():
         "_printer_switch": True,
         "_airplay_active": False,
     }
+
+
+@pytest.mark.parametrize("cls", [CachedBinarySensor, CachedSwitch])
+def test_cached_state(cls, monkeypatch):
+    """state is published only when it changes"""
+    published = []
+    monkeypatch.setattr(
+        BinarySensor, "update_state", lambda self, state: published.append(state)
+    )
+    entity = cls.__new__(cls)
+    entity._state = None
+    # used by Discoverable.__del__
+    entity.mqtt_client = SimpleNamespace(
+        disconnect=lambda: None, loop_stop=lambda: None
+    )
+
+    entity.update_state(True)
+    entity.update_state(True)
+    entity.off()
+    entity.off()
+    entity.on()
+    assert published == [True, False, True]
